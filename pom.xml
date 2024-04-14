@@ -55,6 +55,7 @@
                 <configuration>
                     <source>1.8</source>
                     <target>1.8</target>
+                    <argLine>-Xmx128m</argLine>
                 </configuration>
             </plugin>
         </plugins>

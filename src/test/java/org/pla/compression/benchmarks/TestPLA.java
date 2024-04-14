@@ -97,26 +97,37 @@ public class TestPLA {
             String delimiter = ",";
             TimeSeries ts = TimeSeriesReader.getTimeSeries(getClass().getResourceAsStream(filename), delimiter, true);
             for (double epsilonPct = epsilonStart; epsilonPct <= epsilonEnd; epsilonPct += epsilonStep) {
-                long[] simpiece = SimPiece(ts.data, ts.range * epsilonPct, false, false, 1, 0.0);
-                System.out.printf("Sim-Piece\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\n", epsilonPct * 100, (double) ts.size / simpiece[0], duration.toMillis(), simpiece[1]);
+		long dur = 0;
+		for (int i=0;i<10;i++){
+	                long[] simpiece = SimPiece(ts.data, ts.range * epsilonPct, false, false, 1, 0.0);
+            		dur += duration.toMillis();
+                	if(i==9) System.out.printf("Sim-Piece\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\n", epsilonPct * 100, (double) ts.size / simpiece[0], dur/10, simpiece[1]);
+		}
 //                for (double pow=0.0005; pow<=5; pow*=2) {
 //                    long[] greedy2 = SimPiece(ts.data, ts.range * epsilonPct, false, false, 4, pow);
 //                    System.out.printf("2nd-Variation (^%.8f)\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\n", pow, epsilonPct * 100, (double) ts.size / greedy2[0], duration.toMillis(), greedy2[1]);
 //                }
-                long[] greedy = SimPiece(ts.data, ts.range * epsilonPct, false, false, 2, 0.0);
-                System.out.printf("Two-step Greedy\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\n", epsilonPct * 100, (double) ts.size / greedy[0], duration.toMillis(), greedy[1]);
-                greedy = SimPiece(ts.data, ts.range * epsilonPct, false, false, 2, 0.5);
-                System.out.printf("Two-step Greedy/0.5\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\n", epsilonPct * 100, (double) ts.size / greedy[0], duration.toMillis(), greedy[1]);
-                greedy = SimPiece(ts.data, ts.range * epsilonPct, false, false, 2, 0.7);
-                System.out.printf("Two-step Greedy/0.7\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\n", epsilonPct * 100, (double) ts.size / greedy[0], duration.toMillis(), greedy[1]);
-                greedy = SimPiece(ts.data, ts.range * epsilonPct, false, false, 2, 0.9);
-                System.out.printf("Two-step Greedy/0.9\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\n", epsilonPct * 100, (double) ts.size / greedy[0], duration.toMillis(), greedy[1]);
+                for (double p = 0.0; p<1.00; p+=0.05){
+			dur =0;
+                	for (int i=0;i<5;i++){
+        	        	long[] greedy = SimPiece(ts.data, ts.range * epsilonPct, false, false, 2, p);
+				dur += duration.toMillis();	
+	                	if(i==4)System.out.printf("Two-step Greedy(^%.2f)\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\n", p, epsilonPct * 100, (double) ts.size / greedy[0], dur/5, greedy[1]);
+			}
+		}
+                //greedy = SimPiece(ts.data, ts.range * epsilonPct, false, false, 2, 0.5);
+                //System.out.printf("Two-step Greedy/0.5\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\n", epsilonPct * 100, (double) ts.size / greedy[0], duration.toMillis(), greedy[1]);
+                //greedy = SimPiece(ts.data, ts.range * epsilonPct, false, false, 2, 0.7);
+                //System.out.printf("Two-step Greedy/0.7\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\n", epsilonPct * 100, (double) ts.size / greedy[0], duration.toMillis(), greedy[1]);
+                //greedy = SimPiece(ts.data, ts.range * epsilonPct, false, false, 2, 0.9);
+                //System.out.printf("Two-step Greedy/0.9\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\n", epsilonPct * 100, (double) ts.size / greedy[0], duration.toMillis(), greedy[1]);
                 /*long[] greedy2 = SimPiece(ts.data, ts.range * epsilonPct, false, false, 3, 2);
                 System.out.printf("Two-step Greedy^\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\n", epsilonPct * 100, (double) ts.size / greedy2[0], duration.toMillis(), greedy2[1]);*/
 
-                for (double pow=0.0, i=-7; pow<=0.0001; pow=Math.pow(10, i++)) {
+                for (double pow=0.0, i=-18; pow<=2; pow=Math.pow(2, i++)) {
                     long[] best0 = SimPiece(ts.data, ts.range * epsilonPct, false, false, 0, pow);
                     System.out.printf("Optimal (^%.8f)\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\n", pow, epsilonPct * 100, (double) ts.size / best0[0], duration.toMillis(), best0[1]);
+			if(pow>0.0)break;
                 }
                 System.out.println();
             }
@@ -150,7 +161,7 @@ public class TestPLA {
         double epsilonStep = 0.005;
         double epsilonEnd = 0.05;
 
-        String[] filenames = {"/Lightning.csv.gz",};
+        String[] filenames = {"/citytemp_f32_sample.csv.gz", "/jane_street_f64_sample.csv.gz", "/nyc_taxi2015_f64_sample.csv.gz", /*"/phone_gyro_f64_sample.csv.gz",*/ "/solar_wind_f32_sample.csv.gz", /*"/ts_gas_f32_sample.csv.gz", "/wesad_chest_f64_sample.csv.gz",*/ "/Lightning.csv.gz", "/spain_gas_price_f64_sample.csv.gz", "/Cricket.csv.gz", "/FaceFour.csv.gz", "/MoteStrain.csv.gz", "/Wafer.csv.gz", "/WindSpeed_sample.csv.gz", "/WindDirection.csv.gz", "/Pressure_sample.csv.gz" };
         run(filenames, epsilonStart, epsilonStep, epsilonEnd);
     }
 }
