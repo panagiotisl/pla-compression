@@ -162,7 +162,7 @@ public class TestPLA {
     @Test
     public void TestCRAndTime() throws IOException {
         double epsilonStart = 0.005;
-        double epsilonStep = 0.005;
+        double epsilonStep = 0.0025;
         double epsilonEnd = 0.05;
 
         String[] filenames = {"/citytemp_f32_sample.csv.gz", "/jane_street_f64_sample.csv.gz", "/nyc_taxi2015_f64_sample.csv.gz", /*"/phone_gyro_f64_sample.csv.gz",*/ "/solar_wind_f32_sample.csv.gz", /*"/ts_gas_f32_sample.csv.gz", "/wesad_chest_f64_sample.csv.gz",*/ "/Lightning.csv.gz", "/spain_gas_price_f64_sample.csv.gz", "/Cricket.csv.gz", "/FaceFour.csv.gz", "/MoteStrain.csv.gz", "/Wafer.csv.gz", "/WindSpeed_sample.csv.gz", "/WindDirection.csv.gz", "/Pressure_sample.csv.gz" };
