@@ -103,7 +103,7 @@ public class TestPLA {
 		for (int i=0;i<10;i++){
 	                double[] simpiece = SimPiece(ts.data, ts.range * epsilonPct, false, false, 1, 0.0);
             		dur += duration.toMillis();
-                	if(i==9) System.out.printf("Sim-Piece\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\tMAE: %.10f\n", epsilonPct * 100, (double) ts.size / simpiece[0], dur/10, (long) simpiece[1], simpiece[2]/(ts.range * ts.size));
+                	if(i==9) System.out.printf("Sim-Piece\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\tMAE: %.10f\t%.2f\n", epsilonPct * 100, (double) ts.size / simpiece[0], dur/10, (long) simpiece[1], simpiece[2]/(ts.range * ts.data.size()), ts.range);
 		}
 //                for (double pow=0.0005; pow<=5; pow*=2) {
 //                    long[] greedy2 = SimPiece(ts.data, ts.range * epsilonPct, false, false, 4, pow);
@@ -114,7 +114,7 @@ public class TestPLA {
                 	for (int i=0;i<5;i++){
         	        	double[] greedy = SimPiece(ts.data, ts.range * epsilonPct, false, false, 2, p);
 				dur += duration.toMillis();	
-	                	if(i==4)System.out.printf("Two-step Greedy(^%.2f)\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\tMAE: %.10f\n", p, epsilonPct * 100, (double) ts.size / greedy[0], dur/5, (long)greedy[1], greedy[2]/(ts.range * ts.size));
+	                	if(i==4)System.out.printf("Two-step Greedy(^%.2f)\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\tMAE: %.10f\n", p, epsilonPct * 100, (double) ts.size / greedy[0], dur/5, (long)greedy[1], greedy[2]/(ts.range * ts.data.size()));
 			}
                     break;
 		}
@@ -129,7 +129,7 @@ public class TestPLA {
 
                 for (double pow=0.0, i=-18; pow<=2; pow=Math.pow(2, i++)) {
                     double[] best0 = SimPiece(ts.data, ts.range * epsilonPct, false, false, 0, pow);
-                    System.out.printf("Optimal (^%.8f)\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\tMAE: %.10f\n", pow, epsilonPct * 100, (double) ts.size / best0[0], duration.toMillis(), (long)best0[1], best0[2]/(ts.range * ts.size));
+                    System.out.printf("Optimal (^%.8f)\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\tMAE: %.10f\n", pow, epsilonPct * 100, (double) ts.size / best0[0], duration.toMillis(), (long)best0[1], best0[2]/(ts.range * ts.data.size()));
 			    //if(pow>0.0)
                 break;
                 }
