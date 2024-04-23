@@ -1,4 +1,4 @@
-package org.pla.compression.simpiece;
+package org.pla.compression.encodings;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
@@ -13,11 +13,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.*;
 
-public class SimPiece {
+public class Encoding {
     private static final double POWER = 0.1;
-    private ArrayList<SimPieceSegment> segments;
+    private ArrayList<Segment> segments;
 
-    private ArrayList<SimPieceSegment> bestSegments;
+    private ArrayList<Segment> bestSegments;
 
     private int bestSize = Integer.MAX_VALUE;
     private double epsilon;
@@ -26,7 +26,7 @@ public class SimPiece {
     private int previousNoOfGroups = 0;
     private List<Point> points;
 
-    public SimPiece(List<Point> points, double epsilon, int mode, double pow) throws IOException {
+    public Encoding(List<Point> points, double epsilon, int mode, double pow) throws IOException {
         if (points.isEmpty()) throw new IOException();
 
         this.points = points;
@@ -35,7 +35,7 @@ public class SimPiece {
         this.segments = compress(points, mode, pow);
     }
 
-    public SimPiece(byte[] bytes, boolean variableByte, boolean zstd) throws IOException {
+    public Encoding(byte[] bytes, boolean variableByte, boolean zstd) throws IOException {
         readByteArray(bytes, variableByte, zstd);
     }
 
@@ -51,12 +51,12 @@ public class SimPiece {
         return Math.floor(value / epsilon) * epsilon;
     }
 
-    public ArrayList<SimPieceSegment> getSegments() {
+    public ArrayList<Segment> getSegments() {
         return segments;
     }
 
-    private List<SimPieceSegment> createSegmentsFromStartIdx(int startIdx, List<Point> points) {
-        List<SimPieceSegment> segments = new LinkedList<>();
+    private List<Segment> createSegmentsFromStartIdx(int startIdx, List<Point> points) {
+        List<Segment> segments = new LinkedList<>();
 
         long initTimestamp = points.get(startIdx).getTimestamp();
         double b1 = floor(points.get(startIdx).getValue());
@@ -66,7 +66,7 @@ public class SimPiece {
         boolean ceil = true;
         int length = 0;
         if (startIdx + 1 == points.size()) {
-            segments.add(new SimPieceSegment(initTimestamp, -Double.MAX_VALUE, Double.MAX_VALUE, b));
+            segments.add(new Segment(initTimestamp, -Double.MAX_VALUE, Double.MAX_VALUE, b));
             return segments;
         }
         double aMax1 = ((points.get(startIdx + 1).getValue() + epsilon) - b1) / (points.get(startIdx + 1).getTimestamp() - initTimestamp);
@@ -75,7 +75,7 @@ public class SimPiece {
         double aMin2 = ((points.get(startIdx + 1).getValue() - epsilon) - b2) / (points.get(startIdx + 1).getTimestamp() - initTimestamp);
 
         if (startIdx + 2 == points.size()) {
-            segments.add(new SimPieceSegment(initTimestamp, aMin1, aMax1, b1));
+            segments.add(new Segment(initTimestamp, aMin1, aMax1, b1));
             return segments;
         }
 
@@ -96,13 +96,13 @@ public class SimPiece {
             if (floor) length++;
             if (ceil) length--;
             if (length > 0) {
-                segments.add(new SimPieceSegment(initTimestamp, aMin1, aMax1, b1));
+                segments.add(new Segment(initTimestamp, aMin1, aMax1, b1));
             } else if (length < 0){
-                segments.add(new SimPieceSegment(initTimestamp, aMin2, aMax2, b2));
+                segments.add(new Segment(initTimestamp, aMin2, aMax2, b2));
             } else if (aMax1 - aMin1 > aMax2 - aMin2) {
-                segments.add(new SimPieceSegment(initTimestamp, aMin1, aMax1, b1));
+                segments.add(new Segment(initTimestamp, aMin1, aMax1, b1));
             } else {
-                segments.add(new SimPieceSegment(initTimestamp, aMin2, aMax2, b2));
+                segments.add(new Segment(initTimestamp, aMin2, aMax2, b2));
             }
             if (!floor && !ceil) {
                 return segments;
@@ -118,13 +118,13 @@ public class SimPiece {
                 aMin2 = Math.min((downValue - b2) / (points.get(idx).getTimestamp() - initTimestamp), aMax2);
         }
         if (length > 0) {
-            segments.add(new SimPieceSegment(initTimestamp, aMin1, aMax1, b1));
+            segments.add(new Segment(initTimestamp, aMin1, aMax1, b1));
         } else if (length < 0){
-            segments.add(new SimPieceSegment(initTimestamp, aMin2, aMax2, b2));
+            segments.add(new Segment(initTimestamp, aMin2, aMax2, b2));
         } else if (aMax1 - aMin1 > aMax2 - aMin2) {
-            segments.add(new SimPieceSegment(initTimestamp, aMin1, aMax1, b1));
+            segments.add(new Segment(initTimestamp, aMin1, aMax1, b1));
         } else {
-            segments.add(new SimPieceSegment(initTimestamp, aMin2, aMax2, b2));
+            segments.add(new Segment(initTimestamp, aMin2, aMax2, b2));
         }
 
         return segments;
@@ -180,10 +180,10 @@ public class SimPiece {
     }
 
 
-    private State binarySearch(List<State> states, int previousNoOfGroups, long initTimestamp, double b, ArrayList<SimPieceSegment> segments) {
-        ArrayList<SimPieceSegment> oldSegments = mergePerB(segments);
+    private State binarySearch(List<State> states, int previousNoOfGroups, long initTimestamp, double b, ArrayList<Segment> segments) {
+        ArrayList<Segment> oldSegments = mergePerB(segments);
         TreeMap<Double, HashMap<Double, ArrayList<Long>>> tree = new TreeMap<>();
-        for (SimPieceSegment segment : oldSegments) {
+        for (Segment segment : oldSegments) {
             double a = segment.getA();
             double bi = segment.getB();
             long t = segment.getInitTimestamp();
@@ -228,13 +228,13 @@ public class SimPiece {
             return String.format("%d, %f, %f, %f", idx, aMin, aMax, aMax - aMin);
         }
     }
-    private int findNumberOfGroups(long initTimestamp, double aMax, double aMin, double b, ArrayList<SimPieceSegment> segments) {
-        ArrayList<SimPieceSegment> tempSegments = new ArrayList<>(segments);
-        tempSegments.add(new SimPieceSegment(initTimestamp, aMin, aMax, b));
+    private int findNumberOfGroups(long initTimestamp, double aMax, double aMin, double b, ArrayList<Segment> segments) {
+        ArrayList<Segment> tempSegments = new ArrayList<>(segments);
+        tempSegments.add(new Segment(initTimestamp, aMin, aMax, b));
         tempSegments = mergePerB(tempSegments);
 
         TreeMap<Double, HashMap<Double, ArrayList<Long>>> input = new TreeMap<>();
-        for (SimPieceSegment segment : tempSegments) {
+        for (Segment segment : tempSegments) {
             double a = segment.getA();
             double bi = segment.getB();
             long t = segment.getInitTimestamp();
@@ -248,17 +248,17 @@ public class SimPiece {
         return groups;
     }
 
-    private boolean findNumberOfGroups(long initTimestamp, double aMax, double aMin, double b, ArrayList<SimPieceSegment> segments,
-                                       int previousNoOfGroups, ArrayList<SimPieceSegment> oldSegments,
+    private boolean findNumberOfGroups(long initTimestamp, double aMax, double aMin, double b, ArrayList<Segment> segments,
+                                       int previousNoOfGroups, ArrayList<Segment> oldSegments,
                                        TreeMap<Double, HashMap<Double, ArrayList<Long>>> tree) {
         double alpha = oldSegments.stream().filter(s -> s.getB() == b && s.getAMin() <= aMax && s.getAMax() >= aMin).mapToDouble(s -> s.getAMax() - s.getAMin()).max().orElse(-1.0);
 
-        ArrayList<SimPieceSegment> tempSegments = new ArrayList<>(segments);
-        tempSegments.add(new SimPieceSegment(initTimestamp, aMin, aMax, b));
+        ArrayList<Segment> tempSegments = new ArrayList<>(segments);
+        tempSegments.add(new Segment(initTimestamp, aMin, aMax, b));
         tempSegments = mergePerB(tempSegments);
         double value = 0;
         TreeMap<Double, HashMap<Double, ArrayList<Long>>> input = new TreeMap<>();
-        for (SimPieceSegment segment : tempSegments) {
+        for (Segment segment : tempSegments) {
             double a = segment.getA();
             double bi = segment.getB();
             long t = segment.getInitTimestamp();
@@ -278,48 +278,25 @@ public class SimPiece {
         return groups > previousNoOfGroups;// || value > 10;
     }
 
-
-    private boolean additionalGroup(int groups, ArrayList<SimPieceSegment> segments, SimPieceSegment segment) {
-        ArrayList<SimPieceSegment> copy = new ArrayList<>(segments);
-        copy.add(segment);
-        return mergePerB(copy).size() > groups;
-    }
-
-    private boolean noOverlap(ArrayList<SimPieceSegment> segments, double b, double aMin, double aMax) {
-        if (segments.isEmpty()) {
-            return false;
-        }
-        int count = 0;
-        for (SimPieceSegment segment : segments) {
-            if (segment.getB() == b && aMax > segment.getAMin() &&  aMin < segment.getAMax()) {
-                count++;
-            }
-        }
-        if (count >= 1) {
-            return false;
-        }
-        return true;
-    }
-
-    LoadingCache<Integer, List<SimPieceSegment>> cache = Caffeine.newBuilder()
+    LoadingCache<Integer, List<Segment>> cache = Caffeine.newBuilder()
             .maximumSize(5000)
             .build(this::createSegmentsFromStartIdx);
 //    Map<Integer, List<SimPieceSegment>> cache = new HashMap<>();
 
-    private List<SimPieceSegment> createSegmentsFromStartIdx(int idx) {
+    private List<Segment> createSegmentsFromStartIdx(int idx) {
         return createSegmentsFromStartIdx(idx, this.points);
     }
 
-    private ArrayList<SimPieceSegment> compress(List<Point> points) {
+    private ArrayList<Segment> compress(List<Point> points) {
         return compress(points, 0, 0);
     }
 
-    private ArrayList<SimPieceSegment> compress(List<Point> points, int mode, double pow) {
-        Map<Integer, List<SimPieceSegment>> possibleSegments = new TreeMap<>();
+    private ArrayList<Segment> compress(List<Point> points, int mode, double pow) {
+        Map<Integer, List<Segment>> possibleSegments = new TreeMap<>();
         switch (mode) {
             case 0:
                 for (int i = 0; i <= points.size() - 1; i++) {
-                    List<SimPieceSegment> segmentsFromStartIdx = createSegmentsFromStartIdx(i, points);
+                    List<Segment> segmentsFromStartIdx = createSegmentsFromStartIdx(i, points);
 //            System.out.println(String.format("StartIdx: %d: %d", i, segmentsFromStartIdx.size()));
                     possibleSegments.put(i, segmentsFromStartIdx);
                 }
@@ -344,17 +321,12 @@ public class SimPiece {
                 this.segments = mergePerB(this.segments);
                 break;
             case 1:
-                ArrayList<SimPieceSegment> segments = new ArrayList<>();
+                ArrayList<Segment> segments = new ArrayList<>();
                 int currentIdx = 0;
                 while (currentIdx < points.size()) currentIdx = createSegment(currentIdx, points, segments);
                 this.segments = mergePerB(segments);
                 break;
             case 2:
-//                for (int i = 0; i <= points.size() - 1; i++) {
-//                    List<SimPieceSegment> segmentsFromStartIdx = createSegmentsFromStartIdx(i, points);
-////            System.out.println(String.format("StartIdx: %d: %d", i, segmentsFromStartIdx.size()));
-//                    possibleSegments.put(i, segmentsFromStartIdx);
-//                }
                 this.segments = new ArrayList<>();
                 int startIdx = 0;
                 while (startIdx < points.size()) {
@@ -364,8 +336,7 @@ public class SimPiece {
                 break;
             case 3:
                 for (int i = 0; i <= points.size() - 1; i++) {
-                    List<SimPieceSegment> segmentsFromStartIdx = createSegmentsFromStartIdx(i, points);
-//            System.out.println(String.format("StartIdx: %d: %d", i, segmentsFromStartIdx.size()));
+                    List<Segment> segmentsFromStartIdx = createSegmentsFromStartIdx(i, points);
                     possibleSegments.put(i, segmentsFromStartIdx);
                 }
                 this.segments = new ArrayList<>();
@@ -375,40 +346,9 @@ public class SimPiece {
                 }
                 this.segments = mergePerB(this.segments);
                 break;
-/*                for (int i = 0; i <= points.size() - 1; i++) {
-                    List<SimPieceSegment> segmentsFromStartIdx = createSegmentsFromStartIdx(i, points);
-//            System.out.println(String.format("StartIdx: %d: %d", i, segmentsFromStartIdx.size()));
-                    possibleSegments.put(i, segmentsFromStartIdx);
-                }
-                this.segments = new ArrayList<>();
-                int startIdxG = 0;
-                while (startIdxG < points.size()) {
-                    startIdxG = addSegment(startIdxG, possibleSegments, pow);
-                }
-
-                List<Integer> sizes = new ArrayList<>();
-                SimPieceSegment previousSegment = null;
-                for (SimPieceSegment segment : this.segments) {
-                    if (previousSegment != null) {
-                        int startT = (int) previousSegment.getInitTimestamp();
-                        int endT = (int) segment.getInitTimestamp();
-                        if (!possibleSegments.get(startT).get(endT - startT - 2).equals(previousSegment)) {
-                            System.out.println(startT + " " + endT);
-                        } else {
-                            sizes.add(endT - startT - 2);
-                        }
-                    }
-                    previousSegment = segment;
-                }
-
-                System.out.println(sizes.size() + " " + this.segments.size());
-
-                this.segments = mergePerB(this.segments);
-                break;*/
             case 4:
                 for (int i = 0; i <= points.size() - 1; i++) {
-                    List<SimPieceSegment> segmentsFromStartIdx = createSegmentsFromStartIdx(i, points);
-//            System.out.println(String.format("StartIdx: %d: %d", i, segmentsFromStartIdx.size()));
+                    List<Segment> segmentsFromStartIdx = createSegmentsFromStartIdx(i, points);
                     possibleSegments.put(i, segmentsFromStartIdx);
                 }
                 this.segments = new ArrayList<>();
@@ -419,25 +359,21 @@ public class SimPiece {
                 this.segments = mergePerB(this.segments);
                 break;
         }
-
-
-
-
         return segments;
     }
 
 
-    private int createSegment(int startIdx, List<Point> points, ArrayList<SimPieceSegment> segments) {
+    private int createSegment(int startIdx, List<Point> points, ArrayList<Segment> segments) {
         long initTimestamp = points.get(startIdx).getTimestamp();
         double b = floor(points.get(startIdx).getValue());
         if (startIdx + 1 == points.size()) {
-            segments.add(new SimPieceSegment(initTimestamp, -Double.MAX_VALUE, Double.MAX_VALUE, b));
+            segments.add(new Segment(initTimestamp, -Double.MAX_VALUE, Double.MAX_VALUE, b));
             return startIdx + 1;
         }
         double aMax = ((points.get(startIdx + 1).getValue() + epsilon) - b) / (points.get(startIdx + 1).getTimestamp() - initTimestamp);
         double aMin = ((points.get(startIdx + 1).getValue() - epsilon) - b) / (points.get(startIdx + 1).getTimestamp() - initTimestamp);
         if (startIdx + 2 == points.size()) {
-            segments.add(new SimPieceSegment(initTimestamp, aMin, aMax, b));
+            segments.add(new Segment(initTimestamp, aMin, aMax, b));
             return startIdx + 2;
         }
 
@@ -448,7 +384,7 @@ public class SimPiece {
             double upLim = aMax * (points.get(idx).getTimestamp() - initTimestamp) + b;
             double downLim = aMin * (points.get(idx).getTimestamp() - initTimestamp) + b;
             if ((downValue > upLim || upValue < downLim)) {
-                segments.add(new SimPieceSegment(initTimestamp, aMin, aMax, b));
+                segments.add(new Segment(initTimestamp, aMin, aMax, b));
                 return idx;
             }
 
@@ -457,12 +393,12 @@ public class SimPiece {
             if (downValue > downLim)
                 aMin = Math.min((downValue - b) / (points.get(idx).getTimestamp() - initTimestamp), aMax);
         }
-        segments.add(new SimPieceSegment(initTimestamp, aMin, aMax, b));
+        segments.add(new Segment(initTimestamp, aMin, aMax, b));
 
         return points.size();
     }
 
-    private int createSegmentBoth(int startIdx, List<Point> points, ArrayList<SimPieceSegment> segments) {
+    private int createSegmentBoth(int startIdx, List<Point> points, ArrayList<Segment> segments) {
         long initTimestamp = points.get(startIdx).getTimestamp();
         double b1 = floor(points.get(startIdx).getValue());
         double b2 = ceil(points.get(startIdx).getValue());
@@ -471,7 +407,7 @@ public class SimPiece {
         boolean ceil = true;
         double b = quantization(points.get(startIdx).getValue());
         if (startIdx + 1 == points.size()) {
-            segments.add(new SimPieceSegment(initTimestamp, -Double.MAX_VALUE, Double.MAX_VALUE, b));
+            segments.add(new Segment(initTimestamp, -Double.MAX_VALUE, Double.MAX_VALUE, b));
             return startIdx + 1;
         }
         double aMax1 = ((points.get(startIdx + 1).getValue() + epsilon) - b1) / (points.get(startIdx + 1).getTimestamp() - initTimestamp);
@@ -479,7 +415,7 @@ public class SimPiece {
         double aMax2 = ((points.get(startIdx + 1).getValue() + epsilon) - b2) / (points.get(startIdx + 1).getTimestamp() - initTimestamp);
         double aMin2 = ((points.get(startIdx + 1).getValue() - epsilon) - b2) / (points.get(startIdx + 1).getTimestamp() - initTimestamp);
         if (startIdx + 2 == points.size()) {
-            segments.add(new SimPieceSegment(initTimestamp, aMin1, aMax1, b));
+            segments.add(new Segment(initTimestamp, aMin1, aMax1, b));
             return startIdx + 2;
         }
 
@@ -501,9 +437,9 @@ public class SimPiece {
             if (ceil) count--;
             if (!floor && !ceil) {
                 if (count > 0) {
-                    segments.add(new SimPieceSegment(initTimestamp, aMin1, aMax1, b1));
+                    segments.add(new Segment(initTimestamp, aMin1, aMax1, b1));
                 } else {
-                    segments.add(new SimPieceSegment(initTimestamp, aMin2, aMax2, b2));
+                    segments.add(new Segment(initTimestamp, aMin2, aMax2, b2));
                 }
                 return idx;
             }
@@ -517,9 +453,9 @@ public class SimPiece {
                 aMin2 = Math.min((downValue - b2) / (points.get(idx).getTimestamp() - initTimestamp), aMax2);
         }
         if (count > 0) {
-            segments.add(new SimPieceSegment(initTimestamp, aMin1, aMax1, b1));
+            segments.add(new Segment(initTimestamp, aMin1, aMax1, b1));
         } else {
-            segments.add(new SimPieceSegment(initTimestamp, aMin2, aMax2, b2));
+            segments.add(new Segment(initTimestamp, aMin2, aMax2, b2));
         }
 
         return points.size();
@@ -527,12 +463,12 @@ public class SimPiece {
 
 
 
-    private int createSegmentSimPath(int startIdx, List<Point> points, ArrayList<SimPieceSegment> segments) {
+    private int createSegmentSimPath(int startIdx, List<Point> points, ArrayList<Segment> segments) {
 //        System.out.println("Starting segment " + segments.size());
         long initTimestamp = points.get(startIdx).getTimestamp();
         double b = quantization(points.get(startIdx).getValue());
         if (startIdx + 1 == points.size()) {
-            segments.add(new SimPieceSegment(initTimestamp, -Double.MAX_VALUE, Double.MAX_VALUE, b));
+            segments.add(new Segment(initTimestamp, -Double.MAX_VALUE, Double.MAX_VALUE, b));
             return startIdx + 1;
         }
         double aMax = ((points.get(startIdx + 1).getValue() + epsilon) - b) / (points.get(startIdx + 1).getTimestamp() - initTimestamp);
@@ -540,7 +476,7 @@ public class SimPiece {
 //      System.out.println(aMax-aMin);
         double diff = aMax-aMin;
         if (startIdx + 2 == points.size()) {
-            segments.add(new SimPieceSegment(initTimestamp, aMin, aMax, b));
+            segments.add(new Segment(initTimestamp, aMin, aMax, b));
             return startIdx + 2;
         }
 
@@ -572,11 +508,11 @@ public class SimPiece {
 //                        System.out.println(String.format("%d - %d - %f", (idx - startIdx), (state.idx - startIdx) , ((double) state.idx - startIdx) / (idx - startIdx)));
 //                    }
                     previousNoOfGroups = newGroups;
-                    segments.add(new SimPieceSegment(initTimestamp, state.aMin, state.aMax, b));
+                    segments.add(new Segment(initTimestamp, state.aMin, state.aMax, b));
                     return state.idx;
                 }
                 previousNoOfGroups = newGroups;
-                segments.add(new SimPieceSegment(initTimestamp, aMin, aMax, b));
+                segments.add(new Segment(initTimestamp, aMin, aMax, b));
                 return idx;
             }
             diff = aMax-aMin;
@@ -586,12 +522,12 @@ public class SimPiece {
                 aMin = Math.min((downValue - b) / (points.get(idx).getTimestamp() - initTimestamp), aMax);
             diff = diff - (aMax-aMin);
         }
-        segments.add(new SimPieceSegment(initTimestamp, aMin, aMax, b));
+        segments.add(new Segment(initTimestamp, aMin, aMax, b));
 
         return points.size();
     }
 
-    private int findBest(int start, Map<Integer, List<SimPieceSegment>> possibleSegments, int[][] best) {
+    private int findBest(int start, Map<Integer, List<Segment>> possibleSegments, int[][] best) {
 //        System.out.println("CALLED: " + start + " - " + best.length);
         if (start >= possibleSegments.size()) {
             return 0;
@@ -617,7 +553,7 @@ public class SimPiece {
 
 
 
-    private double[] findBestWithAngle(int start, Map<Integer, List<SimPieceSegment>> possibleSegments, double[][] best, double pow) {
+    private double[] findBestWithAngle(int start, Map<Integer, List<Segment>> possibleSegments, double[][] best, double pow) {
         if (start >= possibleSegments.size()) {
             return new double[] {0, 0};
         }
@@ -633,7 +569,7 @@ public class SimPiece {
                 double[] result = findBestWithAngle(start + i + 1, possibleSegments, best, pow);
                 double n = result[0] + 1;
 //                System.out.println(start);
-                SimPieceSegment segment = possibleSegments.get(start).get(i-1);
+                Segment segment = possibleSegments.get(start).get(i-1);
                 double angle = result[1] + Math.pow((segment.getAMax() - segment.getAMin()), pow);
                 double cost = angle / (n * n);
 //                double cost = 1.0 / (n * n);
@@ -653,7 +589,7 @@ public class SimPiece {
 
     private int addSegment(int startIdx, double pow) {
 //        int firstSegments = cache.get(startIdx).size();
-        List<SimPieceSegment> firstSegments = createSegmentsFromStartIdx(startIdx);
+        List<Segment> firstSegments = createSegmentsFromStartIdx(startIdx);
         int index = 0;
         if (startIdx + 2 < points.size()) {
 //            int best = 2 + cache.get(startIdx + 2).size();
@@ -695,18 +631,18 @@ public class SimPiece {
 //
 //            }
 
-        List<SimPieceSegment> firstSegments = createSegmentsFromStartIdx(startIdx);
-        SimPieceSegment currSegment = firstSegments.get(firstSegments.size() - 1);
+        List<Segment> firstSegments = createSegmentsFromStartIdx(startIdx);
+        Segment currSegment = firstSegments.get(firstSegments.size() - 1);
         if (!this.segments.isEmpty()) {
-            SimPieceSegment prevSegment = this.segments.get(this.segments.size() - 1);
-            List<SimPieceSegment> startPrevSegments = createSegmentsFromStartIdx((int) prevSegment.getInitTimestamp());
+            Segment prevSegment = this.segments.get(this.segments.size() - 1);
+            List<Segment> startPrevSegments = createSegmentsFromStartIdx((int) prevSegment.getInitTimestamp());
             int bLast = startIdx + firstSegments.size();
             int bPrev = startIdx - 1;
             int bStart = (int) prevSegment.getInitTimestamp();
             double sumAngles = Math.pow(prevSegment.getAMax() - prevSegment.getAMin(), pow) + Math.pow(currSegment.getAMax() - currSegment.getAMin(), pow);
             int bestPrev = bPrev;
             while (bPrev >= 0) {
-                List<SimPieceSegment> prevSegments = createSegmentsFromStartIdx(bPrev);
+                List<Segment> prevSegments = createSegmentsFromStartIdx(bPrev);
                 if (bPrev + prevSegments.size() + 1 < bLast) {
                     break;
                 }
@@ -714,8 +650,8 @@ public class SimPiece {
                     bPrev--;
                     continue;
                 }
-                SimPieceSegment newLastSegment = prevSegments.get(bLast - bPrev - 1);
-                SimPieceSegment newPrevSegment = startPrevSegments.get(bPrev - bStart - 1 - 1);
+                Segment newLastSegment = prevSegments.get(bLast - bPrev - 1);
+                Segment newPrevSegment = startPrevSegments.get(bPrev - bStart - 1 - 1);
                 double newSum = Math.pow(newLastSegment.getAMax() - newLastSegment.getAMin(), pow) + Math.pow(newPrevSegment.getAMax() - newPrevSegment.getAMin(), pow);
                 if (newSum > sumAngles) {
                     sumAngles = newSum;
@@ -733,7 +669,7 @@ public class SimPiece {
     }
 
 
-    private int addSegment(int startIdx, Map<Integer, List<SimPieceSegment>> possibleSegments, double pow) {
+    private int addSegment(int startIdx, Map<Integer, List<Segment>> possibleSegments, double pow) {
 //        System.out.println("Getting: " + startIdx);
 //        System.out.println("Size: " + possibleSegments.get(startIdx).size());
         int firstSegments = possibleSegments.get(startIdx).size();
@@ -766,55 +702,22 @@ public class SimPiece {
         this.segments.add(possibleSegments.get(startIdx).get(index));
         return startIdx + index + 1 + 1;
     }
-
-    /*private int addSegment(int startIdx, Map<Integer, List<SimPieceSegment>> possibleSegments, double pow) {
-//        System.out.println("Getting: " + startIdx);
-//        System.out.println("Size: " + possibleSegments.get(startIdx).size());
-        int firstSegments = possibleSegments.get(startIdx).size();
-        int index = 0;
-        double bestAlphaTotal = 0;
-        if (startIdx + 2 < possibleSegments.size()) {
-            double alpha1 = possibleSegments.get(startIdx).get(0).getAMax() - possibleSegments.get(startIdx).get(0).getAMax();
-            int reach = 2 + possibleSegments.get(startIdx + 2).size();
-            double best = 1.0 / reach;
-            //double best = reach;
-            for (int i=1; i<firstSegments && startIdx + i + 2 < possibleSegments.size(); i++) {
-                reach = 2 + i + possibleSegments.get(startIdx + i + 2).size();
-                double alphaTotal = Math.pow(alpha1, pow) + Math.pow(
-                        possibleSegments.get(startIdx + i + 2).get(possibleSegments.get(startIdx + i + 2).size() -1).getAMax() -
-                        possibleSegments.get(startIdx + i + 2).get(possibleSegments.get(startIdx + i + 2).size() -1).getAMin(), pow);
-                double current = 1.0 / reach;
-                if (current < best) {
-//                if (reach < best) {
-                    best = current;
-                    index = i;
-                    bestAlphaTotal = alphaTotal;
-//                } else if (current == best && alphaTotal > bestAlphaTotal) {
-//                    best = current;
-//                    index = i;
-//                    bestAlphaTotal = alphaTotal;
-                }
-            }
-        }
-        this.segments.add(possibleSegments.get(startIdx).get(index));
-        return startIdx + index + 1 + 1;
-    }*/
-
-    private ArrayList<SimPieceSegment> mergePerB(ArrayList<SimPieceSegment> segments) {
+    
+    private ArrayList<Segment> mergePerB(ArrayList<Segment> segments) {
         double aMinTemp = -Double.MAX_VALUE;
         double aMaxTemp = Double.MAX_VALUE;
         double b = Double.NaN;
         ArrayList<Long> timestamps = new ArrayList<>();
-        ArrayList<SimPieceSegment> mergedSegments = new ArrayList<>();
+        ArrayList<Segment> mergedSegments = new ArrayList<>();
 
-        segments.sort(Comparator.comparingDouble(SimPieceSegment::getB).thenComparingDouble(SimPieceSegment::getA));
+        segments.sort(Comparator.comparingDouble(Segment::getB).thenComparingDouble(Segment::getA));
         for (int i = 0; i < segments.size(); i++) {
             if (b != segments.get(i).getB()) {
                 if (timestamps.size() == 1)
-                    mergedSegments.add(new SimPieceSegment(timestamps.get(0), aMinTemp, aMaxTemp, b));
+                    mergedSegments.add(new Segment(timestamps.get(0), aMinTemp, aMaxTemp, b));
                 else {
                     for (Long timestamp : timestamps)
-                        mergedSegments.add(new SimPieceSegment(timestamp, aMinTemp, aMaxTemp, b));
+                        mergedSegments.add(new Segment(timestamp, aMinTemp, aMaxTemp, b));
                 }
                 timestamps.clear();
                 timestamps.add(segments.get(i).getInitTimestamp());
@@ -831,7 +734,7 @@ public class SimPiece {
                 if (timestamps.size() == 1) mergedSegments.add(segments.get(i - 1));
                 else {
                     for (long timestamp : timestamps)
-                        mergedSegments.add(new SimPieceSegment(timestamp, aMinTemp, aMaxTemp, b));
+                        mergedSegments.add(new Segment(timestamp, aMinTemp, aMaxTemp, b));
                 }
                 timestamps.clear();
                 timestamps.add(segments.get(i).getInitTimestamp());
@@ -841,10 +744,10 @@ public class SimPiece {
         }
         if (!timestamps.isEmpty()) {
             if (timestamps.size() == 1)
-                mergedSegments.add(new SimPieceSegment(timestamps.get(0), aMinTemp, aMaxTemp, b));
+                mergedSegments.add(new Segment(timestamps.get(0), aMinTemp, aMaxTemp, b));
             else {
                 for (long timestamp : timestamps)
-                    mergedSegments.add(new SimPieceSegment(timestamp, aMinTemp, aMaxTemp, b));
+                    mergedSegments.add(new Segment(timestamp, aMinTemp, aMaxTemp, b));
             }
         }
 
@@ -852,7 +755,7 @@ public class SimPiece {
     }
 
     public List<Point> decompress() {
-        segments.sort(Comparator.comparingLong(SimPieceSegment::getInitTimestamp));
+        segments.sort(Comparator.comparingLong(Segment::getInitTimestamp));
         List<Point> points = new ArrayList<>();
         long currentTimeStamp = segments.get(0).getInitTimestamp();
 
@@ -872,9 +775,9 @@ public class SimPiece {
         return points;
     }
 
-    private void toByteArrayPerBSegments(ArrayList<SimPieceSegment> segments, boolean variableByte, ByteArrayOutputStream outStream) throws IOException {
+    private void toByteArrayPerBSegments(ArrayList<Segment> segments, boolean variableByte, ByteArrayOutputStream outStream) throws IOException {
         TreeMap<Integer, HashMap<Double, ArrayList<Long>>> input = new TreeMap<>();
-        for (SimPieceSegment segment : segments) {
+        for (Segment segment : segments) {
             double a = segment.getA();
             int b = (int) Math.round(segment.getB() / epsilon);
             long t = segment.getInitTimestamp();
@@ -925,8 +828,8 @@ public class SimPiece {
         return bytes;
     }
 
-    private ArrayList<SimPieceSegment> readMergedPerBSegments(boolean variableByte, ByteArrayInputStream inStream) throws IOException {
-        ArrayList<SimPieceSegment> segments = new ArrayList<>();
+    private ArrayList<Segment> readMergedPerBSegments(boolean variableByte, ByteArrayInputStream inStream) throws IOException {
+        ArrayList<Segment> segments = new ArrayList<>();
         long numB = VariableByteEncoder.read(inStream);
         if (numB == 0) return segments;
         int previousB = VariableByteEncoder.read(inStream);
@@ -941,7 +844,7 @@ public class SimPiece {
                 for (int k = 0; k < numTimestamps; k++) {
                     if (variableByte) timestamp += VariableByteEncoder.read(inStream);
                     else timestamp = UIntEncoder.read(inStream);
-                    segments.add(new SimPieceSegment(timestamp, a, (float) (b * epsilon)));
+                    segments.add(new Segment(timestamp, a, (float) (b * epsilon)));
                 }
             }
         }
