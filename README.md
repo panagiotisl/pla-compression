@@ -41,7 +41,7 @@ Quant-Optimal	Epsilon: 1,00%	Compression Ratio: 11,724	Execution Time: 162ms	Seg
 Angle-Aware(^0,00000381)	Epsilon: 1,00%	Compression Ratio: 11,970	Execution Time: 185ms	Segments: 15680	MAE: 0,5782600000	MAE%: 0,0045226391
 
 Sim-Piece	Epsilon: 1,50%	Compression Ratio: 15,746	Execution Time: 3ms	Segments: 11660	MAE: 0,8938200000	MAE%: 0,0069906708	127,86
-^[[2~Tunable-Peek-Ahead(^0,00)	Epsilon: 1,50%	Compression Ratio: 19,567	Execution Time: 27ms	Segments: 9274	MAE: 0,8383500000	MAE%: 0,0065568335
+Tunable-Peek-Ahead(^0,00)	Epsilon: 1,50%	Compression Ratio: 19,567	Execution Time: 27ms	Segments: 9274	MAE: 0,8383500000	MAE%: 0,0065568335
 Tunable-Peek-Ahead(^0,05)	Epsilon: 1,50%	Compression Ratio: 19,567	Execution Time: 27ms	Segments: 9274	MAE: 0,8383500000	MAE%: 0,0065568335
 Tunable-Peek-Ahead(^0,10)	Epsilon: 1,50%	Compression Ratio: 19,567	Execution Time: 27ms	Segments: 9274	MAE: 0,8383500000	MAE%: 0,0065568335
 Tunable-Peek-Ahead(^0,15)	Epsilon: 1,50%	Compression Ratio: 19,567	Execution Time: 27ms	Segments: 9274	MAE: 0,8383500000	MAE%: 0,0065568335
