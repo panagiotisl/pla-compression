@@ -15,9 +15,9 @@ import java.util.*;
 
 public class Encoding {
     private static final double POWER = 0.1;
-    private ArrayList<Segment> segments;
+    private List<Segment> segments;
 
-    private ArrayList<Segment> bestSegments;
+    private List<Segment> bestSegments;
 
     private int bestSize = Integer.MAX_VALUE;
     private double epsilon;
@@ -51,7 +51,7 @@ public class Encoding {
         return Math.floor(value / epsilon) * epsilon;
     }
 
-    public ArrayList<Segment> getSegments() {
+    public List<Segment> getSegments() {
         return segments;
     }
 
@@ -180,9 +180,9 @@ public class Encoding {
     }
 
 
-    private State binarySearch(List<State> states, int previousNoOfGroups, long initTimestamp, double b, ArrayList<Segment> segments) {
-        ArrayList<Segment> oldSegments = mergePerB(segments);
-        TreeMap<Double, HashMap<Double, ArrayList<Long>>> tree = new TreeMap<>();
+    private State binarySearch(List<State> states, int previousNoOfGroups, long initTimestamp, double b, List<Segment> segments) {
+        List<Segment> oldSegments = mergePerB(segments);
+        TreeMap<Double, HashMap<Double, List<Long>>> tree = new TreeMap<>();
         for (Segment segment : oldSegments) {
             double a = segment.getA();
             double bi = segment.getB();
@@ -228,8 +228,8 @@ public class Encoding {
             return String.format("%d, %f, %f, %f", idx, aMin, aMax, aMax - aMin);
         }
     }
-    private int findNumberOfGroups(long initTimestamp, double aMax, double aMin, double b, ArrayList<Segment> segments) {
-        ArrayList<Segment> tempSegments = new ArrayList<>(segments);
+    private int findNumberOfGroups(long initTimestamp, double aMax, double aMin, double b, List<Segment> segments) {
+        List<Segment> tempSegments = new ArrayList<>(segments);
         tempSegments.add(new Segment(initTimestamp, aMin, aMax, b));
         tempSegments = mergePerB(tempSegments);
 
@@ -248,16 +248,16 @@ public class Encoding {
         return groups;
     }
 
-    private boolean findNumberOfGroups(long initTimestamp, double aMax, double aMin, double b, ArrayList<Segment> segments,
-                                       int previousNoOfGroups, ArrayList<Segment> oldSegments,
-                                       TreeMap<Double, HashMap<Double, ArrayList<Long>>> tree) {
+    private boolean findNumberOfGroups(long initTimestamp, double aMax, double aMin, double b, List<Segment> segments,
+                                       int previousNoOfGroups, List<Segment> oldSegments,
+                                       TreeMap<Double, HashMap<Double, List<Long>>> tree) {
         double alpha = oldSegments.stream().filter(s -> s.getB() == b && s.getAMin() <= aMax && s.getAMax() >= aMin).mapToDouble(s -> s.getAMax() - s.getAMin()).max().orElse(-1.0);
 
-        ArrayList<Segment> tempSegments = new ArrayList<>(segments);
+        List<Segment> tempSegments = new ArrayList<>(segments);
         tempSegments.add(new Segment(initTimestamp, aMin, aMax, b));
         tempSegments = mergePerB(tempSegments);
         double value = 0;
-        TreeMap<Double, HashMap<Double, ArrayList<Long>>> input = new TreeMap<>();
+        TreeMap<Double, HashMap<Double, List<Long>>> input = new TreeMap<>();
         for (Segment segment : tempSegments) {
             double a = segment.getA();
             double bi = segment.getB();
@@ -272,7 +272,7 @@ public class Encoding {
             input.get(bi).get(a).add(t);
         }
         int groups = 0;
-        for (Map.Entry<Double, HashMap<Double, ArrayList<Long>>> bSegments : input.entrySet())
+        for (Map.Entry<Double, HashMap<Double, List<Long>>> bSegments : input.entrySet())
             groups += bSegments.getValue().size();
 
         return groups > previousNoOfGroups;// || value > 10;
@@ -287,11 +287,11 @@ public class Encoding {
         return createSegmentsFromStartIdx(idx, this.points);
     }
 
-    private ArrayList<Segment> compress(List<Point> points) {
+    private List<Segment> compress(List<Point> points) {
         return compress(points, 0, 0);
     }
 
-    private ArrayList<Segment> compress(List<Point> points, int mode, double pow) {
+    private List<Segment> compress(List<Point> points, int mode, double pow) {
         Map<Integer, List<Segment>> possibleSegments = new TreeMap<>();
         switch (mode) {
             case 0:
@@ -321,7 +321,7 @@ public class Encoding {
                 this.segments = mergePerB(this.segments);
                 break;
             case 1:
-                ArrayList<Segment> segments = new ArrayList<>();
+                List<Segment> segments = new ArrayList<>();
                 int currentIdx = 0;
                 while (currentIdx < points.size()) currentIdx = createSegment(currentIdx, points, segments);
                 this.segments = mergePerB(segments);
@@ -358,12 +358,60 @@ public class Encoding {
                 }
                 this.segments = mergePerB(this.segments);
                 break;
+            case 5:
+                List<Segment> segmentsBoth = new ArrayList<>();
+                int currentIdxBoth = 0;
+                while (currentIdxBoth < points.size()) currentIdxBoth = createSegmentBoth(currentIdxBoth, points, segmentsBoth);
+                this.segments = mergePerB(segmentsBoth);
+                break;
         }
         return segments;
     }
+    
+     private byte[] compressMixPiece(List<Point> points, int mode, double pow) {
+        Map<Integer, List<Segment>> possibleSegments = new TreeMap<>();
+        switch (mode) {
+            case 5:
+                List<Segment> segmentsBoth = new ArrayList<>();
+                int currentIdxBoth = 0;
+                while (currentIdxBoth < points.size()) currentIdxBoth = createSegmentBoth(currentIdxBoth, points, segmentsBoth);
+                int globalMinB = (int)(segments.stream().mapToDouble(Segment::getB).min().orElse(Integer.MIN_VALUE) / epsilon);
+                List<Segment> perBSegments = new ArrayList<Segment>();
+                List<Segment> perASegments = new ArrayList<Segment>();
+                List<Segment> restSegments = new ArrayList<Segment>();
+                merge(segmentsBoth, perBSegments, perASegments, restSegments);
+                return toByteArray(epsilon, globalMinB, perBSegments, perASegments, restSegments);
+        }
+        return null;
+    }
+    
+    private byte[] toByteArray(double epsilon, int globalMinB, List<Segment> perBSegments, List<Segment> perASegments, List<Segment> restSegments) {
+        ByteArrayOutputStream outStream = new ByteArrayOutputStream();
+        byte[] bytes = null;
+
+        try {
+            FloatEncoder.write((float) epsilon, outStream);
+            VariableByteEncoder.write(globalMinB, outStream);
+
+            toByteArrayPerBSegments(perBSegments, outStream, epsilon, globalMinB);
+            toByteArrayPerASegments(perASegments, outStream, epsilon, globalMinB);
+            toByteArrayRestSegments(restSegments, outStream, epsilon, globalMinB);
+
+            VariableByteEncoder.write((int) lastTimeStamp, outStream);
+
+             return outStream.toByteArray();
+            //bytes = Zstd.compress(outStream.toByteArray());
+
+            //outStream.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return bytes;
+    }
 
 
-    private int createSegment(int startIdx, List<Point> points, ArrayList<Segment> segments) {
+    private int createSegment(int startIdx, List<Point> points, List<Segment> segments) {
         long initTimestamp = points.get(startIdx).getTimestamp();
         double b = floor(points.get(startIdx).getValue());
         if (startIdx + 1 == points.size()) {
@@ -398,7 +446,7 @@ public class Encoding {
         return points.size();
     }
 
-    private int createSegmentBoth(int startIdx, List<Point> points, ArrayList<Segment> segments) {
+    private int createSegmentBoth(int startIdx, List<Point> points, List<Segment> segments) {
         long initTimestamp = points.get(startIdx).getTimestamp();
         double b1 = floor(points.get(startIdx).getValue());
         double b2 = ceil(points.get(startIdx).getValue());
@@ -463,7 +511,7 @@ public class Encoding {
 
 
 
-    private int createSegmentSimPath(int startIdx, List<Point> points, ArrayList<Segment> segments) {
+    private int createSegmentSimPath(int startIdx, List<Point> points, List<Segment> segments) {
 //        System.out.println("Starting segment " + segments.size());
         long initTimestamp = points.get(startIdx).getTimestamp();
         double b = quantization(points.get(startIdx).getValue());
@@ -703,12 +751,12 @@ public class Encoding {
         return startIdx + index + 1 + 1;
     }
     
-    private ArrayList<Segment> mergePerB(ArrayList<Segment> segments) {
+    private List<Segment> mergePerB(List<Segment> segments) {
         double aMinTemp = -Double.MAX_VALUE;
         double aMaxTemp = Double.MAX_VALUE;
         double b = Double.NaN;
-        ArrayList<Long> timestamps = new ArrayList<>();
-        ArrayList<Segment> mergedSegments = new ArrayList<>();
+        List<Long> timestamps = new ArrayList<>();
+        List<Segment> mergedSegments = new ArrayList<>();
 
         segments.sort(Comparator.comparingDouble(Segment::getB).thenComparingDouble(Segment::getA));
         for (int i = 0; i < segments.size(); i++) {
@@ -753,6 +801,104 @@ public class Encoding {
 
         return mergedSegments;
     }
+    
+    
+    private static void mergePerBNew(List<Segment> segments, List<Segment> mergedSegments, List<Segment> unmergedSegments) {
+        double aMinTemp = -Double.MAX_VALUE;
+        double aMaxTemp = Double.MAX_VALUE;
+        double b = Double.NaN;
+        List<Long> timestamps = new ArrayList<>();
+
+        segments.sort(Comparator.comparingDouble(Segment::getB).thenComparingDouble(Segment::getA));
+        for (int i = 0; i < segments.size(); i++) {
+            if (b != segments.get(i).getB()) {
+                if (timestamps.size() == 1)
+                    unmergedSegments.add(new Segment(timestamps.get(0), aMinTemp, aMaxTemp, b));
+                else {
+                    for (Long timestamp : timestamps)
+                        mergedSegments.add(new Segment(timestamp, aMinTemp, aMaxTemp, b));
+                }
+                timestamps.clear();
+                timestamps.add(segments.get(i).getInitTimestamp());
+                aMinTemp = segments.get(i).getAMin();
+                aMaxTemp = segments.get(i).getAMax();
+                b = segments.get(i).getB();
+                continue;
+            }
+            if (segments.get(i).getAMin() <= aMaxTemp && segments.get(i).getAMax() >= aMinTemp) {
+                timestamps.add(segments.get(i).getInitTimestamp());
+                aMinTemp = Math.max(aMinTemp, segments.get(i).getAMin());
+                aMaxTemp = Math.min(aMaxTemp, segments.get(i).getAMax());
+            } else {
+                if (timestamps.size() == 1) unmergedSegments.add(segments.get(i - 1));
+                else {
+                    for (long timestamp : timestamps)
+                        mergedSegments.add(new Segment(timestamp, aMinTemp, aMaxTemp, b));
+                }
+                timestamps.clear();
+                timestamps.add(segments.get(i).getInitTimestamp());
+                aMinTemp = segments.get(i).getAMin();
+                aMaxTemp = segments.get(i).getAMax();
+            }
+        }
+        if (!timestamps.isEmpty()) {
+            if (timestamps.size() == 1)
+                unmergedSegments.add(new Segment(timestamps.get(0), aMinTemp, aMaxTemp, b));
+            else {
+                for (long timestamp : timestamps)
+                    mergedSegments.add(new Segment(timestamp, aMinTemp, aMaxTemp, b));
+            }
+        }
+    }
+
+    private static void mergeAll(List<Segment> segments, List<Segment> mergedSegments, List<Segment> unmergedSegments) {
+        double aMinTemp = -Double.MAX_VALUE;
+        double aMaxTemp = Double.MAX_VALUE;
+        List<Double> bValues = new ArrayList<>();
+        List<Long> timestamps = new ArrayList<>();
+
+        segments.sort(Comparator.comparingDouble(Segment::getAMin));
+        for (int i = 0; i < segments.size(); i++) {
+            if (segments.get(i).getAMin() <= aMaxTemp && segments.get(i).getAMax() >= aMinTemp) {
+                timestamps.add(segments.get(i).getInitTimestamp());
+                aMinTemp = Math.max(aMinTemp, segments.get(i).getAMin());
+                aMaxTemp = Math.min(aMaxTemp, segments.get(i).getAMax());
+                bValues.add(segments.get(i).getB());
+            } else {
+                if (timestamps.size() == 1) unmergedSegments.add(segments.get(i - 1));
+                else {
+                    for (int j = 0; j < timestamps.size(); j++)
+                        mergedSegments.add(new Segment(timestamps.get(j), aMinTemp, aMaxTemp, bValues.get(j)));
+                }
+                timestamps.clear();
+                timestamps.add(segments.get(i).getInitTimestamp());
+                aMinTemp = segments.get(i).getAMin();
+                aMaxTemp = segments.get(i).getAMax();
+                bValues.clear();
+                bValues.add(segments.get(i).getB());
+            }
+        }
+        if (!timestamps.isEmpty()) {
+            if (timestamps.size() == 1)
+                unmergedSegments.add(new Segment(timestamps.get(0), aMinTemp, aMaxTemp, bValues.get(0)));
+            else {
+                for (int i = 0; i < timestamps.size(); i++)
+                    mergedSegments.add(new Segment(timestamps.get(i), aMinTemp, aMaxTemp, bValues.get(i)));
+            }
+        }
+    }
+
+    private static void merge(List<Segment> segments, List<Segment> perBSegments, List<Segment> perASegments, List<Segment> restSegments) {
+        perBSegments = new ArrayList<>();
+        perASegments = new ArrayList<>();
+        restSegments = new ArrayList<>();
+        List<Segment> temp = new ArrayList<>();
+
+        mergePerBNew(segments, perBSegments, temp);
+        if (!temp.isEmpty()) {
+            mergeAll(temp, perASegments, restSegments);
+        }
+    }
 
     public List<Point> decompress() {
         segments.sort(Comparator.comparingLong(Segment::getInitTimestamp));
@@ -775,8 +921,8 @@ public class Encoding {
         return points;
     }
 
-    private void toByteArrayPerBSegments(ArrayList<Segment> segments, boolean variableByte, ByteArrayOutputStream outStream) throws IOException {
-        TreeMap<Integer, HashMap<Double, ArrayList<Long>>> input = new TreeMap<>();
+    private void toByteArrayPerBSegments(List<Segment> segments, boolean variableByte, ByteArrayOutputStream outStream) throws IOException {
+        TreeMap<Integer, HashMap<Double, List<Long>>> input = new TreeMap<>();
         for (Segment segment : segments) {
             double a = segment.getA();
             int b = (int) Math.round(segment.getB() / epsilon);
@@ -790,11 +936,11 @@ public class Encoding {
         if (input.isEmpty()) return;
         int previousB = input.firstKey();
         VariableByteEncoder.write(previousB, outStream);
-        for (Map.Entry<Integer, HashMap<Double, ArrayList<Long>>> bSegments : input.entrySet()) {
+        for (Map.Entry<Integer, HashMap<Double, List<Long>>> bSegments : input.entrySet()) {
             VariableByteEncoder.write(bSegments.getKey() - previousB, outStream);
             previousB = bSegments.getKey();
             VariableByteEncoder.write(bSegments.getValue().size(), outStream);
-            for (Map.Entry<Double, ArrayList<Long>> aSegment : bSegments.getValue().entrySet()) {
+            for (Map.Entry<Double, List<Long>> aSegment : bSegments.getValue().entrySet()) {
                 FloatEncoder.write(aSegment.getKey().floatValue(), outStream);
                 if (variableByte) Collections.sort(aSegment.getValue());
                 VariableByteEncoder.write(aSegment.getValue().size(), outStream);
@@ -808,6 +954,75 @@ public class Encoding {
         }
     }
 
+    private static void toByteArrayPerBSegments(List<Segment> segments, ByteArrayOutputStream outStream, double epsilon, int globalMinB) throws IOException {
+        TreeMap<Integer, HashMap<Double, ArrayList<Long>>> input = new TreeMap<>();
+        for (Segment segment : segments) {
+            double a = segment.getA();
+            int b = (int) Math.round(segment.getB() / epsilon);
+            long t = segment.getInitTimestamp();
+            if (!input.containsKey(b)) input.put(b, new HashMap<>());
+            if (!input.get(b).containsKey(a)) input.get(b).put(a, new ArrayList<>());
+            input.get(b).get(a).add(t);
+        }
+
+        VariableByteEncoder.write(input.size(), outStream);
+        if (input.isEmpty())
+            return;
+        int previousB = input.firstKey() - globalMinB;
+        VariableByteEncoder.write(previousB, outStream);
+        for (Map.Entry<Integer, HashMap<Double, ArrayList<Long>>> bSegments : input.entrySet()) {
+            VariableByteEncoder.write(bSegments.getKey() - globalMinB - previousB, outStream);
+            previousB = bSegments.getKey() - globalMinB;
+            VariableByteEncoder.write(bSegments.getValue().size(), outStream);
+            for (Map.Entry<Double, ArrayList<Long>> aSegment : bSegments.getValue().entrySet()) {
+                FloatEncoder.write(aSegment.getKey().floatValue(), outStream);
+                Collections.sort(aSegment.getValue());
+                VariableByteEncoder.write(aSegment.getValue().size(), outStream);
+                long previousTS = 0;
+                for (Long timestamp : aSegment.getValue()) {
+                    VariableByteEncoder.write((int) (timestamp - previousTS), outStream);
+                    previousTS = timestamp;
+                }
+            }
+        }
+    }
+
+    private static void toByteArrayPerASegments(List<Segment> segments, ByteArrayOutputStream outStream, double epsilon, int globalMinB) throws IOException {
+        TreeMap<Double, List<Segment>> input = new TreeMap<>();
+        for (Segment segment : segments) {
+            if (!input.containsKey(segment.getA())) input.put(segment.getA(), new ArrayList<>());
+            input.get(segment.getA()).add(segment);
+        }
+
+        VariableByteEncoder.write(input.size(), outStream);
+        for (Map.Entry<Double, List<Segment>> aSegments : input.entrySet()) {
+            FloatEncoder.write(aSegments.getKey().floatValue(), outStream);
+            VariableByteEncoder.write(aSegments.getValue().size(), outStream);
+            aSegments.getValue().sort(Comparator.comparingDouble(Segment::getB));
+            int previousB = (int) Math.round(aSegments.getValue().get(0).getB() / epsilon) - globalMinB;
+            VariableByteEncoder.write(previousB, outStream);
+            for (Segment segment : aSegments.getValue()) {
+                VariableByteEncoder.write((int) (Math.round(segment.getB() / epsilon) - globalMinB - previousB), outStream);
+                previousB = (int) Math.round(segment.getB() / epsilon) - globalMinB;
+                UIntEncoder.write(segment.getInitTimestamp(), outStream);
+            }
+        }
+    }
+
+    private static void toByteArrayRestSegments(List<Segment> segments, ByteArrayOutputStream outStream, double epsilon, int globalMinB) throws IOException {
+        VariableByteEncoder.write(segments.size(), outStream);
+        if (segments.isEmpty())
+            return;
+        segments.sort(Comparator.comparingDouble(Segment::getB));
+        int previousB = (int) Math.round(segments.get(0).getB() / epsilon) - globalMinB;
+        VariableByteEncoder.write(previousB, outStream);
+        for (Segment segment : segments) {
+            VariableByteEncoder.write((int) (Math.round(segment.getB() / epsilon) - globalMinB - previousB), outStream);
+            previousB = (int) Math.round(segment.getB() / epsilon) - globalMinB;
+            FloatEncoder.write((float) segment.getA(), outStream);
+            UIntEncoder.write(segment.getInitTimestamp(), outStream);
+        }
+    }
 
     public byte[] toByteArray(boolean variableByte, boolean zstd) throws IOException {
         ByteArrayOutputStream outStream = new ByteArrayOutputStream();
@@ -828,7 +1043,7 @@ public class Encoding {
         return bytes;
     }
 
-    private ArrayList<Segment> readMergedPerBSegments(boolean variableByte, ByteArrayInputStream inStream) throws IOException {
+    private List<Segment> readMergedPerBSegments(boolean variableByte, ByteArrayInputStream inStream) throws IOException {
         ArrayList<Segment> segments = new ArrayList<>();
         long numB = VariableByteEncoder.read(inStream);
         if (numB == 0) return segments;

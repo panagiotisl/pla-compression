@@ -48,6 +48,11 @@
             <plugin>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>2.22.2</version>
+                <configuration>
+                    <source>1.8</source>
+                    <target>1.8</target>
+                    <argLine>-Xmx10g</argLine>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -55,7 +60,7 @@
                 <configuration>
                     <source>1.8</source>
                     <target>1.8</target>
-                    <argLine>-Xmx128m</argLine>
+                    <argLine>-Xmx10g</argLine>
                 </configuration>
             </plugin>
         </plugins>
