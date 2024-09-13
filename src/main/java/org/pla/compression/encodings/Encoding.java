@@ -6,7 +6,6 @@ import com.github.luben.zstd.Zstd;
 import org.pla.compression.util.Encoding.FloatEncoder;
 import org.pla.compression.util.Encoding.UIntEncoder;
 import org.pla.compression.util.Encoding.VariableByteEncoder;
-import org.pla.compression.util.Point;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -16,6 +15,7 @@ import java.util.*;
 public class Encoding {
     private static final double POWER = 0.1;
     private List<Segment> segments;
+    private byte[] byteArray;
 
     private List<Segment> bestSegments;
 
@@ -33,6 +33,14 @@ public class Encoding {
         this.epsilon = epsilon;
         this.lastTimeStamp = points.get(points.size() - 1).getTimestamp();
         this.segments = compress(points, mode, pow);
+    }
+
+    public Encoding(List<Point> points, double epsilon, int mode, double pow, boolean mixpiece) throws IOException {
+        if (points.isEmpty()) throw new IOException();
+        this.points = points;
+        this.epsilon = epsilon;
+        this.lastTimeStamp = points.get(points.size() - 1).getTimestamp();
+        this.byteArray = compressMixPiece(points, mode, pow);
     }
 
     public Encoding(byte[] bytes, boolean variableByte, boolean zstd) throws IOException {
@@ -367,7 +375,7 @@ public class Encoding {
         }
         return segments;
     }
-    
+
      private byte[] compressMixPiece(List<Point> points, int mode, double pow) {
         Map<Integer, List<Segment>> possibleSegments = new TreeMap<>();
         switch (mode) {
@@ -375,7 +383,8 @@ public class Encoding {
                 List<Segment> segmentsBoth = new ArrayList<>();
                 int currentIdxBoth = 0;
                 while (currentIdxBoth < points.size()) currentIdxBoth = createSegmentBoth(currentIdxBoth, points, segmentsBoth);
-                int globalMinB = (int)(segments.stream().mapToDouble(Segment::getB).min().orElse(Integer.MIN_VALUE) / epsilon);
+                int globalMinB = (int)(segmentsBoth.stream().mapToDouble(Segment::getB).min().orElse(Integer.MIN_VALUE) / epsilon);
+                this.segments = segmentsBoth;
                 List<Segment> perBSegments = new ArrayList<Segment>();
                 List<Segment> perASegments = new ArrayList<Segment>();
                 List<Segment> restSegments = new ArrayList<Segment>();
@@ -384,7 +393,7 @@ public class Encoding {
         }
         return null;
     }
-    
+
     private byte[] toByteArray(double epsilon, int globalMinB, List<Segment> perBSegments, List<Segment> perASegments, List<Segment> restSegments) {
         ByteArrayOutputStream outStream = new ByteArrayOutputStream();
         byte[] bytes = null;
@@ -750,7 +759,7 @@ public class Encoding {
         this.segments.add(possibleSegments.get(startIdx).get(index));
         return startIdx + index + 1 + 1;
     }
-    
+
     private List<Segment> mergePerB(List<Segment> segments) {
         double aMinTemp = -Double.MAX_VALUE;
         double aMaxTemp = Double.MAX_VALUE;
@@ -801,8 +810,8 @@ public class Encoding {
 
         return mergedSegments;
     }
-    
-    
+
+
     private static void mergePerBNew(List<Segment> segments, List<Segment> mergedSegments, List<Segment> unmergedSegments) {
         double aMinTemp = -Double.MAX_VALUE;
         double aMaxTemp = Double.MAX_VALUE;
@@ -1025,22 +1034,25 @@ public class Encoding {
     }
 
     public byte[] toByteArray(boolean variableByte, boolean zstd) throws IOException {
-        ByteArrayOutputStream outStream = new ByteArrayOutputStream();
-        byte[] bytes;
+        if (byteArray == null) {
+            ByteArrayOutputStream outStream = new ByteArrayOutputStream();
+            byte[] bytes;
 
-        FloatEncoder.write((float) epsilon, outStream);
+            FloatEncoder.write((float) epsilon, outStream);
+            toByteArrayPerBSegments(segments, variableByte, outStream);
 
-        toByteArrayPerBSegments(segments, variableByte, outStream);
+            if (variableByte) VariableByteEncoder.write((int) lastTimeStamp, outStream);
+            else UIntEncoder.write(lastTimeStamp, outStream);
 
-        if (variableByte) VariableByteEncoder.write((int) lastTimeStamp, outStream);
-        else UIntEncoder.write(lastTimeStamp, outStream);
+            if (zstd) bytes = Zstd.compress(outStream.toByteArray());
+            else bytes = outStream.toByteArray();
 
-        if (zstd) bytes = Zstd.compress(outStream.toByteArray());
-        else bytes = outStream.toByteArray();
+            outStream.close();
 
-        outStream.close();
-
-        return bytes;
+            return bytes;
+        } else {
+            return byteArray;
+        }
     }
 
     private List<Segment> readMergedPerBSegments(boolean variableByte, ByteArrayInputStream inStream) throws IOException {

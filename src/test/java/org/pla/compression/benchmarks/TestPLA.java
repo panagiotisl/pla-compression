@@ -1,7 +1,8 @@
 package org.pla.compression.benchmarks;
 
 import org.pla.compression.encodings.Encoding;
-import org.pla.compression.util.Point;
+import org.pla.compression.encodings.MixPiece;
+import org.pla.compression.encodings.Point;
 import org.pla.compression.util.TimeSeries;
 import org.pla.compression.util.TimeSeriesReader;
 import org.junit.jupiter.api.Test;
@@ -41,8 +42,26 @@ public class TestPLA {
         return new double[]{compressedSize, encoding.getSegments().size(), (long) ae};
     }
 
+    private double[] MixPiece(List<Point> ts, double epsilon) throws Exception {
+        byte[] binary = MixPiece.compress(ts, epsilon);
+        List<Point> tsDecompressed = MixPiece.decompress(binary);
+        int idx = 0;
+        double ae = 0.0;
+        for (Point expected : tsDecompressed) {
+            Point actual = ts.get(idx);
+            if (expected.getTimestamp() != actual.getTimestamp()) continue;
+            idx++;
+            ae += Math.abs(actual.getValue() - expected.getValue());
+            assertEquals(actual.getValue(), expected.getValue(), 1.1 * epsilon, "Value did not match for timestamp " + actual.getTimestamp());
+        }
+        assertEquals(idx, ts.size());
 
-    private void run(String[] filenames, double epsilonStart, double epsilonStep, double epsilonEnd) throws IOException {
+        return new double[]{binary.length, 0.0, (long) ae};
+    }
+
+
+
+    private void run(String[] filenames, double epsilonStart, double epsilonStep, double epsilonEnd) throws Exception {
         for (String filename : filenames) {
             System.out.println(filename);
             String delimiter = ",";
@@ -55,7 +74,7 @@ public class TestPLA {
                             if(i==9) System.out.printf("Sim-Piece\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\t%.2f\n", epsilonPct * 100, (double) ts.size / simpiece[0], dur/10, (long) simpiece[1], simpiece[2]/ts.data.size(), simpiece[2]/(ts.range * ts.data.size()), ts.range);
                 }
                 for (int i=0;i<10;i++){
-                            double[] simpiece = Encoding(ts.data, ts.range * epsilonPct, false, false, 5, 0.0);
+                            double[] simpiece = MixPiece(ts.data, ts.range * epsilonPct);
                             dur += duration.toMillis();
                             if(i==9) System.out.printf("Sim-Piece*\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\t%.2f\n", epsilonPct * 100, (double) ts.size / simpiece[0], dur/10, (long) simpiece[1], simpiece[2]/ts.data.size(), simpiece[2]/(ts.range * ts.data.size()), ts.range);
                 }
@@ -83,7 +102,7 @@ public class TestPLA {
 
 
     @Test
-    public void TestCRAndTime() throws IOException {
+    public void TestCRAndTime() throws Exception {
         double epsilonStart = 0.01;
         double epsilonStep = 0.005;
         double epsilonEnd = 0.051;
