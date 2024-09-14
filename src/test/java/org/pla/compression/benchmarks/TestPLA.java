@@ -3,6 +3,7 @@ package org.pla.compression.benchmarks;
 import org.pla.compression.encodings.Encoding;
 import org.pla.compression.encodings.MixPiece;
 import org.pla.compression.encodings.Point;
+import org.pla.compression.encodings.Result;
 import org.pla.compression.util.TimeSeries;
 import org.pla.compression.util.TimeSeriesReader;
 import org.junit.jupiter.api.Test;
@@ -45,9 +46,9 @@ public class TestPLA {
     private double[] MixPiece(List<Point> ts, double epsilon, boolean variableByte, boolean zstd) throws Exception {
         duration = Duration.ZERO;
         Instant start = Instant.now();
-        byte[] binary = MixPiece.compress(ts, epsilon, variableByte, zstd);
+        Result result = MixPiece.compress(ts, epsilon, variableByte, zstd);
         duration = Duration.between(start, Instant.now());
-        List<Point> tsDecompressed = MixPiece.decompress(binary, variableByte, zstd);
+        List<Point> tsDecompressed = MixPiece.decompress(result.getBinary(), variableByte, zstd);
         int idx = 0;
         double ae = 0.0;
         for (Point expected : tsDecompressed) {
@@ -59,15 +60,15 @@ public class TestPLA {
         }
         assertEquals(idx, ts.size());
 
-        return new double[]{binary.length, 0.0, (long) ae};
+        return new double[]{result.getBinary().length, result.getSegmentsSize(), (long) ae};
     }
 
     private double[] MixPieceTunablePeekAhead(List<Point> ts, double epsilon, boolean variableByte, boolean zstd, double pow) throws Exception {
         duration = Duration.ZERO;
         Instant start = Instant.now();
-        byte[] binary = MixPiece.compressTunablePeekAhead(ts, epsilon, variableByte, zstd, pow);
+        Result result = MixPiece.compressTunablePeekAhead(ts, epsilon, variableByte, zstd, pow);
         duration = Duration.between(start, Instant.now());
-        List<Point> tsDecompressed = MixPiece.decompressImproved(binary, variableByte, zstd);
+        List<Point> tsDecompressed = MixPiece.decompressImproved(result.getBinary(), variableByte, zstd);
         int idx = 0;
         double ae = 0.0;
         for (Point expected : tsDecompressed) {
@@ -79,15 +80,15 @@ public class TestPLA {
         }
         assertEquals(idx, ts.size());
 
-        return new double[]{binary.length, 0.0, (long) ae};
+        return new double[]{result.getBinary().length, result.getSegmentsSize(), (long) ae};
     }
 
     private double[] MixPieceQuantOptimal(List<Point> ts, double epsilon, boolean variableByte, boolean zstd, double pow) throws Exception {
         duration = Duration.ZERO;
         Instant start = Instant.now();
-        byte[] binary = MixPiece.compressQuantOptimal(ts, epsilon, variableByte, zstd, pow);
+        Result result = MixPiece.compressQuantOptimal(ts, epsilon, variableByte, zstd, pow);
         duration = Duration.between(start, Instant.now());
-        List<Point> tsDecompressed = MixPiece.decompressImproved(binary, variableByte, zstd);
+        List<Point> tsDecompressed = MixPiece.decompressImproved(result.getBinary(), variableByte, zstd);
         int idx = 0;
         double ae = 0.0;
         for (Point expected : tsDecompressed) {
@@ -99,7 +100,7 @@ public class TestPLA {
         }
         assertEquals(idx, ts.size());
 
-        return new double[]{binary.length, 0.0, (long) ae};
+        return new double[]{result.getBinary().length, result.getSegmentsSize(), (long) ae};
     }
 
 
