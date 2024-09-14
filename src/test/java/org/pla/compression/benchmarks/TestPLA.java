@@ -67,7 +67,7 @@ public class TestPLA {
         Instant start = Instant.now();
         byte[] binary = MixPiece.compressTunablePeekAhead(ts, epsilon, variableByte, zstd, pow);
         duration = Duration.between(start, Instant.now());
-        List<Point> tsDecompressed = MixPiece.decompress(binary, variableByte, zstd);
+        List<Point> tsDecompressed = MixPiece.decompressImproved(binary, variableByte, zstd);
         int idx = 0;
         double ae = 0.0;
         for (Point expected : tsDecompressed) {
@@ -87,7 +87,7 @@ public class TestPLA {
         Instant start = Instant.now();
         byte[] binary = MixPiece.compressQuantOptimal(ts, epsilon, variableByte, zstd, pow);
         duration = Duration.between(start, Instant.now());
-        List<Point> tsDecompressed = MixPiece.decompress(binary, variableByte, zstd);
+        List<Point> tsDecompressed = MixPiece.decompressImproved(binary, variableByte, zstd);
         int idx = 0;
         double ae = 0.0;
         for (Point expected : tsDecompressed) {
