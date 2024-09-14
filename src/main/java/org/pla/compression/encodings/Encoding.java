@@ -14,10 +14,10 @@ import java.util.*;
 
 public class Encoding {
     private static final double POWER = 0.1;
-    private List<Segment> segments;
+    private List<MixPieceSegment> segments;
     private byte[] byteArray;
 
-    private List<Segment> bestSegments;
+    private List<MixPieceSegment> bestMixPieceSegments;
 
     private int bestSize = Integer.MAX_VALUE;
     private double epsilon;
@@ -35,46 +35,38 @@ public class Encoding {
         this.segments = compress(points, mode, pow);
     }
 
-    public Encoding(List<Point> points, double epsilon, int mode, double pow, boolean mixpiece) throws IOException {
-        if (points.isEmpty()) throw new IOException();
-        this.points = points;
-        this.epsilon = epsilon;
-        this.lastTimeStamp = points.get(points.size() - 1).getTimestamp();
-        this.byteArray = compressMixPiece(points, mode, pow);
-    }
-
     public Encoding(byte[] bytes, boolean variableByte, boolean zstd) throws IOException {
         readByteArray(bytes, variableByte, zstd);
     }
 
-    private double quantization(double value) {
+    private static double quantization(double value, double epsilon) {
         return Math.round(value / epsilon) * epsilon;
     }
 
 
-    private double ceil(double value) {
+    public static double ceil(double value, double epsilon) {
         return Math.ceil(value / epsilon) * epsilon;
     }
-    private double floor(double value) {
+    public static double floor(double value, double epsilon) {
         return Math.floor(value / epsilon) * epsilon;
     }
 
-    public List<Segment> getSegments() {
+    public List<MixPieceSegment> getSegments() {
         return segments;
     }
 
-    private List<Segment> createSegmentsFromStartIdx(int startIdx, List<Point> points) {
-        List<Segment> segments = new LinkedList<>();
+    public static List<MixPieceSegment> createMixPieceSegmentsFromStartIdx(int startIdx, List<Point> points, double epsilon) {
+        List<MixPieceSegment> segments = new LinkedList<>();
 
         long initTimestamp = points.get(startIdx).getTimestamp();
-        double b1 = floor(points.get(startIdx).getValue());
-        double b2 = ceil(points.get(startIdx).getValue());
-        double b = quantization(points.get(startIdx).getValue());
+        double b1 = floor(points.get(startIdx).getValue(), epsilon);
+        double b2 = ceil(points.get(startIdx).getValue(), epsilon);
+        double b = quantization(points.get(startIdx).getValue(), epsilon);
         boolean floor = true;
         boolean ceil = true;
         int length = 0;
         if (startIdx + 1 == points.size()) {
-            segments.add(new Segment(initTimestamp, -Double.MAX_VALUE, Double.MAX_VALUE, b));
+            segments.add(new MixPieceSegment(initTimestamp, -Double.MAX_VALUE, Double.MAX_VALUE, b));
             return segments;
         }
         double aMax1 = ((points.get(startIdx + 1).getValue() + epsilon) - b1) / (points.get(startIdx + 1).getTimestamp() - initTimestamp);
@@ -83,7 +75,7 @@ public class Encoding {
         double aMin2 = ((points.get(startIdx + 1).getValue() - epsilon) - b2) / (points.get(startIdx + 1).getTimestamp() - initTimestamp);
 
         if (startIdx + 2 == points.size()) {
-            segments.add(new Segment(initTimestamp, aMin1, aMax1, b1));
+            segments.add(new MixPieceSegment(initTimestamp, aMin1, aMax1, b1));
             return segments;
         }
 
@@ -104,13 +96,13 @@ public class Encoding {
             if (floor) length++;
             if (ceil) length--;
             if (length > 0) {
-                segments.add(new Segment(initTimestamp, aMin1, aMax1, b1));
+                segments.add(new MixPieceSegment(initTimestamp, aMin1, aMax1, b1));
             } else if (length < 0){
-                segments.add(new Segment(initTimestamp, aMin2, aMax2, b2));
+                segments.add(new MixPieceSegment(initTimestamp, aMin2, aMax2, b2));
             } else if (aMax1 - aMin1 > aMax2 - aMin2) {
-                segments.add(new Segment(initTimestamp, aMin1, aMax1, b1));
+                segments.add(new MixPieceSegment(initTimestamp, aMin1, aMax1, b1));
             } else {
-                segments.add(new Segment(initTimestamp, aMin2, aMax2, b2));
+                segments.add(new MixPieceSegment(initTimestamp, aMin2, aMax2, b2));
             }
             if (!floor && !ceil) {
                 return segments;
@@ -126,19 +118,19 @@ public class Encoding {
                 aMin2 = Math.min((downValue - b2) / (points.get(idx).getTimestamp() - initTimestamp), aMax2);
         }
         if (length > 0) {
-            segments.add(new Segment(initTimestamp, aMin1, aMax1, b1));
+            segments.add(new MixPieceSegment(initTimestamp, aMin1, aMax1, b1));
         } else if (length < 0){
-            segments.add(new Segment(initTimestamp, aMin2, aMax2, b2));
+            segments.add(new MixPieceSegment(initTimestamp, aMin2, aMax2, b2));
         } else if (aMax1 - aMin1 > aMax2 - aMin2) {
-            segments.add(new Segment(initTimestamp, aMin1, aMax1, b1));
+            segments.add(new MixPieceSegment(initTimestamp, aMin1, aMax1, b1));
         } else {
-            segments.add(new Segment(initTimestamp, aMin2, aMax2, b2));
+            segments.add(new MixPieceSegment(initTimestamp, aMin2, aMax2, b2));
         }
 
         return segments;
     }
 
-    private int findReachFrom(int startIdx, List<Point> points) {
+    public static int findReachFrom(int startIdx, List<Point> points, double epsilon) {
         if (startIdx + 1 == points.size()) {
             return 1;
         }
@@ -149,8 +141,8 @@ public class Encoding {
         boolean floor = true;
         boolean ceil = true;
         long initTimestamp = points.get(startIdx).getTimestamp();
-        double b1 = floor(points.get(startIdx).getValue());
-        double b2 = ceil(points.get(startIdx).getValue());
+        double b1 = floor(points.get(startIdx).getValue(), epsilon);
+        double b2 = ceil(points.get(startIdx).getValue(), epsilon);
         double aMax1 = ((points.get(startIdx + 1).getValue() + epsilon) - b1) / (points.get(startIdx + 1).getTimestamp() - initTimestamp);
         double aMin1 = ((points.get(startIdx + 1).getValue() - epsilon) - b1) / (points.get(startIdx + 1).getTimestamp() - initTimestamp);
         double aMax2 = ((points.get(startIdx + 1).getValue() + epsilon) - b2) / (points.get(startIdx + 1).getTimestamp() - initTimestamp);
@@ -188,10 +180,10 @@ public class Encoding {
     }
 
 
-    private State binarySearch(List<State> states, int previousNoOfGroups, long initTimestamp, double b, List<Segment> segments) {
-        List<Segment> oldSegments = mergePerB(segments);
+    private State binarySearch(List<State> states, int previousNoOfGroups, long initTimestamp, double b, List<MixPieceSegment> segments) {
+        List<MixPieceSegment> oldMixPieceSegments = mergePerB(segments);
         TreeMap<Double, HashMap<Double, List<Long>>> tree = new TreeMap<>();
-        for (Segment segment : oldSegments) {
+        for (MixPieceSegment segment : oldMixPieceSegments) {
             double a = segment.getA();
             double bi = segment.getB();
             long t = segment.getInitTimestamp();
@@ -207,7 +199,7 @@ public class Encoding {
         while (low <= high) {
             int mid = low  + ((high - low) / 2);
             State state = states.get(mid);
-            if (findNumberOfGroups(initTimestamp, state.aMax, state.aMin, b, segments, previousNoOfGroups, oldSegments, tree)) {
+            if (findNumberOfGroups(initTimestamp, state.aMax, state.aMin, b, segments, previousNoOfGroups, oldMixPieceSegments, tree)) {
                 break;
             } else {
                 found = state;
@@ -236,13 +228,13 @@ public class Encoding {
             return String.format("%d, %f, %f, %f", idx, aMin, aMax, aMax - aMin);
         }
     }
-    private int findNumberOfGroups(long initTimestamp, double aMax, double aMin, double b, List<Segment> segments) {
-        List<Segment> tempSegments = new ArrayList<>(segments);
-        tempSegments.add(new Segment(initTimestamp, aMin, aMax, b));
-        tempSegments = mergePerB(tempSegments);
+    private int findNumberOfGroups(long initTimestamp, double aMax, double aMin, double b, List<MixPieceSegment> segments) {
+        List<MixPieceSegment> tempMixPieceSegments = new ArrayList<>(segments);
+        tempMixPieceSegments.add(new MixPieceSegment(initTimestamp, aMin, aMax, b));
+        tempMixPieceSegments = mergePerB(tempMixPieceSegments);
 
         TreeMap<Double, HashMap<Double, ArrayList<Long>>> input = new TreeMap<>();
-        for (Segment segment : tempSegments) {
+        for (MixPieceSegment segment : tempMixPieceSegments) {
             double a = segment.getA();
             double bi = segment.getB();
             long t = segment.getInitTimestamp();
@@ -251,22 +243,22 @@ public class Encoding {
             input.get(bi).get(a).add(t);
         }
         int groups = 0;
-        for (Map.Entry<Double, HashMap<Double, ArrayList<Long>>> bSegments : input.entrySet())
-            groups += bSegments.getValue().size();
+        for (Map.Entry<Double, HashMap<Double, ArrayList<Long>>> bMixPieceSegments : input.entrySet())
+            groups += bMixPieceSegments.getValue().size();
         return groups;
     }
 
-    private boolean findNumberOfGroups(long initTimestamp, double aMax, double aMin, double b, List<Segment> segments,
-                                       int previousNoOfGroups, List<Segment> oldSegments,
+    private boolean findNumberOfGroups(long initTimestamp, double aMax, double aMin, double b, List<MixPieceSegment> segments,
+                                       int previousNoOfGroups, List<MixPieceSegment> oldMixPieceSegments,
                                        TreeMap<Double, HashMap<Double, List<Long>>> tree) {
-        double alpha = oldSegments.stream().filter(s -> s.getB() == b && s.getAMin() <= aMax && s.getAMax() >= aMin).mapToDouble(s -> s.getAMax() - s.getAMin()).max().orElse(-1.0);
+        double alpha = oldMixPieceSegments.stream().filter(s -> s.getB() == b && s.getAMin() <= aMax && s.getAMax() >= aMin).mapToDouble(s -> s.getAMax() - s.getAMin()).max().orElse(-1.0);
 
-        List<Segment> tempSegments = new ArrayList<>(segments);
-        tempSegments.add(new Segment(initTimestamp, aMin, aMax, b));
-        tempSegments = mergePerB(tempSegments);
+        List<MixPieceSegment> tempMixPieceSegments = new ArrayList<>(segments);
+        tempMixPieceSegments.add(new MixPieceSegment(initTimestamp, aMin, aMax, b));
+        tempMixPieceSegments = mergePerB(tempMixPieceSegments);
         double value = 0;
         TreeMap<Double, HashMap<Double, List<Long>>> input = new TreeMap<>();
-        for (Segment segment : tempSegments) {
+        for (MixPieceSegment segment : tempMixPieceSegments) {
             double a = segment.getA();
             double bi = segment.getB();
             long t = segment.getInitTimestamp();
@@ -280,46 +272,46 @@ public class Encoding {
             input.get(bi).get(a).add(t);
         }
         int groups = 0;
-        for (Map.Entry<Double, HashMap<Double, List<Long>>> bSegments : input.entrySet())
-            groups += bSegments.getValue().size();
+        for (Map.Entry<Double, HashMap<Double, List<Long>>> bMixPieceSegments : input.entrySet())
+            groups += bMixPieceSegments.getValue().size();
 
         return groups > previousNoOfGroups;// || value > 10;
     }
 
-    LoadingCache<Integer, List<Segment>> cache = Caffeine.newBuilder()
+    LoadingCache<Integer, List<MixPieceSegment>> cache = Caffeine.newBuilder()
             .maximumSize(5000)
-            .build(this::createSegmentsFromStartIdx);
-//    Map<Integer, List<SimPieceSegment>> cache = new HashMap<>();
+            .build(this::createMixPieceSegmentsFromStartIdx);
+//    Map<Integer, List<SimPieceMixPieceSegment>> cache = new HashMap<>();
 
-    private List<Segment> createSegmentsFromStartIdx(int idx) {
-        return createSegmentsFromStartIdx(idx, this.points);
+    private List<MixPieceSegment> createMixPieceSegmentsFromStartIdx(int idx) {
+        return createMixPieceSegmentsFromStartIdx(idx, this.points, epsilon);
     }
 
-    private List<Segment> compress(List<Point> points) {
+    private List<MixPieceSegment> compress(List<Point> points) {
         return compress(points, 0, 0);
     }
 
-    private List<Segment> compress(List<Point> points, int mode, double pow) {
-        Map<Integer, List<Segment>> possibleSegments = new TreeMap<>();
+    private List<MixPieceSegment> compress(List<Point> points, int mode, double pow) {
+        Map<Integer, List<MixPieceSegment>> possibleMixPieceSegments = new TreeMap<>();
         switch (mode) {
             case 0:
                 for (int i = 0; i <= points.size() - 1; i++) {
-                    List<Segment> segmentsFromStartIdx = createSegmentsFromStartIdx(i, points);
+                    List<MixPieceSegment> segmentsFromStartIdx = createMixPieceSegmentsFromStartIdx(i, points, epsilon);
 //            System.out.println(String.format("StartIdx: %d: %d", i, segmentsFromStartIdx.size()));
-                    possibleSegments.put(i, segmentsFromStartIdx);
+                    possibleMixPieceSegments.put(i, segmentsFromStartIdx);
                 }
                 this.segments = new ArrayList<>();
                 double[][] best = new double[points.size()][];
-                double angle = possibleSegments.get(points.size() - 1).get(0).getAMax() - possibleSegments.get(points.size() - 1).get(0).getAMax();
+                double angle = possibleMixPieceSegments.get(points.size() - 1).get(0).getAMax() - possibleMixPieceSegments.get(points.size() - 1).get(0).getAMax();
                 best[points.size() - 1] = new double[]{1, Math.pow(angle, pow), 1};
                 for (int i=points.size()-2; i>=0; i--) {
-                    findBestWithAngle(i, possibleSegments, best, pow);
+                    findBestWithAngle(i, possibleMixPieceSegments, best, pow);
                 }
 
                 int start = 0;
                 int count = 0;
                 while (start < points.size()) {
-                    this.segments.add(possibleSegments.get(start).get((int) (best[start][2]-1)));
+                    this.segments.add(possibleMixPieceSegments.get(start).get((int) (best[start][2]-1)));
                     start += (int) (best[start][2]) + 1;
                     count++;
                 }
@@ -329,108 +321,65 @@ public class Encoding {
                 this.segments = mergePerB(this.segments);
                 break;
             case 1:
-                List<Segment> segments = new ArrayList<>();
+                List<MixPieceSegment> segments = new ArrayList<>();
                 int currentIdx = 0;
-                while (currentIdx < points.size()) currentIdx = createSegment(currentIdx, points, segments);
+                while (currentIdx < points.size()) currentIdx = createMixPieceSegment(currentIdx, points, segments);
                 this.segments = mergePerB(segments);
                 break;
             case 2:
                 this.segments = new ArrayList<>();
                 int startIdx = 0;
                 while (startIdx < points.size()) {
-                    startIdx = addSegment(startIdx, pow);
+                    startIdx = addSegment(startIdx, pow, this.points, epsilon, this.segments);
                 }
                 this.segments = mergePerB(this.segments);
                 break;
             case 3:
                 for (int i = 0; i <= points.size() - 1; i++) {
-                    List<Segment> segmentsFromStartIdx = createSegmentsFromStartIdx(i, points);
-                    possibleSegments.put(i, segmentsFromStartIdx);
+                    List<MixPieceSegment> segmentsFromStartIdx = createMixPieceSegmentsFromStartIdx(i, points, epsilon);
+                    possibleMixPieceSegments.put(i, segmentsFromStartIdx);
                 }
                 this.segments = new ArrayList<>();
                 int startIdxG = 0;
                 while (startIdxG < points.size()) {
-                    startIdxG = addSegment(startIdxG, possibleSegments, pow);
+                    startIdxG = addSegment(startIdxG, possibleMixPieceSegments, pow);
                 }
                 this.segments = mergePerB(this.segments);
                 break;
             case 4:
                 for (int i = 0; i <= points.size() - 1; i++) {
-                    List<Segment> segmentsFromStartIdx = createSegmentsFromStartIdx(i, points);
-                    possibleSegments.put(i, segmentsFromStartIdx);
+                    List<MixPieceSegment> segmentsFromStartIdx = createMixPieceSegmentsFromStartIdx(i, points, epsilon);
+                    possibleMixPieceSegments.put(i, segmentsFromStartIdx);
                 }
                 this.segments = new ArrayList<>();
                 startIdx = 0;
                 while (startIdx < points.size()) {
-                    startIdx = addSegment2(startIdx, pow);
+                    startIdx = addMixPieceSegment2(startIdx, pow);
                 }
                 this.segments = mergePerB(this.segments);
                 break;
             case 5:
-                List<Segment> segmentsBoth = new ArrayList<>();
+                List<MixPieceSegment> segmentsBoth = new ArrayList<>();
                 int currentIdxBoth = 0;
-                while (currentIdxBoth < points.size()) currentIdxBoth = createSegmentBoth(currentIdxBoth, points, segmentsBoth);
+                while (currentIdxBoth < points.size()) currentIdxBoth = createMixPieceSegmentBoth(currentIdxBoth, points, segmentsBoth);
                 this.segments = mergePerB(segmentsBoth);
                 break;
         }
         return segments;
     }
 
-     private byte[] compressMixPiece(List<Point> points, int mode, double pow) {
-        Map<Integer, List<Segment>> possibleSegments = new TreeMap<>();
-        switch (mode) {
-            case 5:
-                List<Segment> segmentsBoth = new ArrayList<>();
-                int currentIdxBoth = 0;
-                while (currentIdxBoth < points.size()) currentIdxBoth = createSegmentBoth(currentIdxBoth, points, segmentsBoth);
-                int globalMinB = (int)(segmentsBoth.stream().mapToDouble(Segment::getB).min().orElse(Integer.MIN_VALUE) / epsilon);
-                this.segments = segmentsBoth;
-                List<Segment> perBSegments = new ArrayList<Segment>();
-                List<Segment> perASegments = new ArrayList<Segment>();
-                List<Segment> restSegments = new ArrayList<Segment>();
-                merge(segmentsBoth, perBSegments, perASegments, restSegments);
-                return toByteArray(epsilon, globalMinB, perBSegments, perASegments, restSegments);
-        }
-        return null;
-    }
 
-    private byte[] toByteArray(double epsilon, int globalMinB, List<Segment> perBSegments, List<Segment> perASegments, List<Segment> restSegments) {
-        ByteArrayOutputStream outStream = new ByteArrayOutputStream();
-        byte[] bytes = null;
-
-        try {
-            FloatEncoder.write((float) epsilon, outStream);
-            VariableByteEncoder.write(globalMinB, outStream);
-
-            toByteArrayPerBSegments(perBSegments, outStream, epsilon, globalMinB);
-            toByteArrayPerASegments(perASegments, outStream, epsilon, globalMinB);
-            toByteArrayRestSegments(restSegments, outStream, epsilon, globalMinB);
-
-            VariableByteEncoder.write((int) lastTimeStamp, outStream);
-
-             return outStream.toByteArray();
-            //bytes = Zstd.compress(outStream.toByteArray());
-
-            //outStream.close();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        return bytes;
-    }
-
-
-    private int createSegment(int startIdx, List<Point> points, List<Segment> segments) {
+    private int createMixPieceSegment(int startIdx, List<Point> points, List<MixPieceSegment> segments) {
         long initTimestamp = points.get(startIdx).getTimestamp();
-        double b = floor(points.get(startIdx).getValue());
+        double b = floor(points.get(startIdx).getValue(), epsilon);
         if (startIdx + 1 == points.size()) {
-            segments.add(new Segment(initTimestamp, -Double.MAX_VALUE, Double.MAX_VALUE, b));
+            segments.add(new MixPieceSegment(initTimestamp, -Double.MAX_VALUE, Double.MAX_VALUE, b));
             return startIdx + 1;
         }
         double aMax = ((points.get(startIdx + 1).getValue() + epsilon) - b) / (points.get(startIdx + 1).getTimestamp() - initTimestamp);
         double aMin = ((points.get(startIdx + 1).getValue() - epsilon) - b) / (points.get(startIdx + 1).getTimestamp() - initTimestamp);
         if (startIdx + 2 == points.size()) {
-            segments.add(new Segment(initTimestamp, aMin, aMax, b));
+            segments.add(new MixPieceSegment(initTimestamp, aMin, aMax, b));
             return startIdx + 2;
         }
 
@@ -441,7 +390,7 @@ public class Encoding {
             double upLim = aMax * (points.get(idx).getTimestamp() - initTimestamp) + b;
             double downLim = aMin * (points.get(idx).getTimestamp() - initTimestamp) + b;
             if ((downValue > upLim || upValue < downLim)) {
-                segments.add(new Segment(initTimestamp, aMin, aMax, b));
+                segments.add(new MixPieceSegment(initTimestamp, aMin, aMax, b));
                 return idx;
             }
 
@@ -450,21 +399,21 @@ public class Encoding {
             if (downValue > downLim)
                 aMin = Math.min((downValue - b) / (points.get(idx).getTimestamp() - initTimestamp), aMax);
         }
-        segments.add(new Segment(initTimestamp, aMin, aMax, b));
+        segments.add(new MixPieceSegment(initTimestamp, aMin, aMax, b));
 
         return points.size();
     }
 
-    private int createSegmentBoth(int startIdx, List<Point> points, List<Segment> segments) {
+    private int createMixPieceSegmentBoth(int startIdx, List<Point> points, List<MixPieceSegment> segments) {
         long initTimestamp = points.get(startIdx).getTimestamp();
-        double b1 = floor(points.get(startIdx).getValue());
-        double b2 = ceil(points.get(startIdx).getValue());
+        double b1 = floor(points.get(startIdx).getValue(), epsilon);
+        double b2 = ceil(points.get(startIdx).getValue(), epsilon);
         int count = 0;
         boolean floor = true;
         boolean ceil = true;
-        double b = quantization(points.get(startIdx).getValue());
+        double b = quantization(points.get(startIdx).getValue(), epsilon);
         if (startIdx + 1 == points.size()) {
-            segments.add(new Segment(initTimestamp, -Double.MAX_VALUE, Double.MAX_VALUE, b));
+            segments.add(new MixPieceSegment(initTimestamp, -Double.MAX_VALUE, Double.MAX_VALUE, b));
             return startIdx + 1;
         }
         double aMax1 = ((points.get(startIdx + 1).getValue() + epsilon) - b1) / (points.get(startIdx + 1).getTimestamp() - initTimestamp);
@@ -472,7 +421,7 @@ public class Encoding {
         double aMax2 = ((points.get(startIdx + 1).getValue() + epsilon) - b2) / (points.get(startIdx + 1).getTimestamp() - initTimestamp);
         double aMin2 = ((points.get(startIdx + 1).getValue() - epsilon) - b2) / (points.get(startIdx + 1).getTimestamp() - initTimestamp);
         if (startIdx + 2 == points.size()) {
-            segments.add(new Segment(initTimestamp, aMin1, aMax1, b));
+            segments.add(new MixPieceSegment(initTimestamp, aMin1, aMax1, b));
             return startIdx + 2;
         }
 
@@ -494,9 +443,9 @@ public class Encoding {
             if (ceil) count--;
             if (!floor && !ceil) {
                 if (count > 0) {
-                    segments.add(new Segment(initTimestamp, aMin1, aMax1, b1));
+                    segments.add(new MixPieceSegment(initTimestamp, aMin1, aMax1, b1));
                 } else {
-                    segments.add(new Segment(initTimestamp, aMin2, aMax2, b2));
+                    segments.add(new MixPieceSegment(initTimestamp, aMin2, aMax2, b2));
                 }
                 return idx;
             }
@@ -510,9 +459,9 @@ public class Encoding {
                 aMin2 = Math.min((downValue - b2) / (points.get(idx).getTimestamp() - initTimestamp), aMax2);
         }
         if (count > 0) {
-            segments.add(new Segment(initTimestamp, aMin1, aMax1, b1));
+            segments.add(new MixPieceSegment(initTimestamp, aMin1, aMax1, b1));
         } else {
-            segments.add(new Segment(initTimestamp, aMin2, aMax2, b2));
+            segments.add(new MixPieceSegment(initTimestamp, aMin2, aMax2, b2));
         }
 
         return points.size();
@@ -520,12 +469,12 @@ public class Encoding {
 
 
 
-    private int createSegmentSimPath(int startIdx, List<Point> points, List<Segment> segments) {
+    private int createMixPieceSegmentSimPath(int startIdx, List<Point> points, List<MixPieceSegment> segments) {
 //        System.out.println("Starting segment " + segments.size());
         long initTimestamp = points.get(startIdx).getTimestamp();
-        double b = quantization(points.get(startIdx).getValue());
+        double b = quantization(points.get(startIdx).getValue(), epsilon);
         if (startIdx + 1 == points.size()) {
-            segments.add(new Segment(initTimestamp, -Double.MAX_VALUE, Double.MAX_VALUE, b));
+            segments.add(new MixPieceSegment(initTimestamp, -Double.MAX_VALUE, Double.MAX_VALUE, b));
             return startIdx + 1;
         }
         double aMax = ((points.get(startIdx + 1).getValue() + epsilon) - b) / (points.get(startIdx + 1).getTimestamp() - initTimestamp);
@@ -533,7 +482,7 @@ public class Encoding {
 //      System.out.println(aMax-aMin);
         double diff = aMax-aMin;
         if (startIdx + 2 == points.size()) {
-            segments.add(new Segment(initTimestamp, aMin, aMax, b));
+            segments.add(new MixPieceSegment(initTimestamp, aMin, aMax, b));
             return startIdx + 2;
         }
 
@@ -559,17 +508,17 @@ public class Encoding {
             if ((downValue > upLim || upValue < downLim)) {
                 int newGroups = findNumberOfGroups(initTimestamp, aMax, aMin, b, segments);
                 if (newGroups > previousNoOfGroups) {
-//                    System.out.println(String.format("Segments: %d, Groups: %d, Size: %d", segments.size(), newGroups, (idx - startIdx)));
+//                    System.out.println(String.format("MixPieceSegments: %d, Groups: %d, Size: %d", segments.size(), newGroups, (idx - startIdx)));
                     State state = binarySearch(states, previousNoOfGroups, initTimestamp, b, segments);
 //                    if (idx > state.idx) {
 //                        System.out.println(String.format("%d - %d - %f", (idx - startIdx), (state.idx - startIdx) , ((double) state.idx - startIdx) / (idx - startIdx)));
 //                    }
                     previousNoOfGroups = newGroups;
-                    segments.add(new Segment(initTimestamp, state.aMin, state.aMax, b));
+                    segments.add(new MixPieceSegment(initTimestamp, state.aMin, state.aMax, b));
                     return state.idx;
                 }
                 previousNoOfGroups = newGroups;
-                segments.add(new Segment(initTimestamp, aMin, aMax, b));
+                segments.add(new MixPieceSegment(initTimestamp, aMin, aMax, b));
                 return idx;
             }
             diff = aMax-aMin;
@@ -579,14 +528,14 @@ public class Encoding {
                 aMin = Math.min((downValue - b) / (points.get(idx).getTimestamp() - initTimestamp), aMax);
             diff = diff - (aMax-aMin);
         }
-        segments.add(new Segment(initTimestamp, aMin, aMax, b));
+        segments.add(new MixPieceSegment(initTimestamp, aMin, aMax, b));
 
         return points.size();
     }
 
-    private int findBest(int start, Map<Integer, List<Segment>> possibleSegments, int[][] best) {
+    private int findBest(int start, Map<Integer, List<MixPieceSegment>> possibleMixPieceSegments, int[][] best) {
 //        System.out.println("CALLED: " + start + " - " + best.length);
-        if (start >= possibleSegments.size()) {
+        if (start >= possibleMixPieceSegments.size()) {
             return 0;
         }
         if (best[start] != null) {
@@ -595,8 +544,8 @@ public class Encoding {
         else {
             int bestResult = Integer.MAX_VALUE;
             int bestIndex = 0;
-            for (int i=1; i<= possibleSegments.get(start).size(); i++) {
-                int result = 1 + findBest(start + i + 1, possibleSegments, best);
+            for (int i=1; i<= possibleMixPieceSegments.get(start).size(); i++) {
+                int result = 1 + findBest(start + i + 1, possibleMixPieceSegments, best);
                 if (result < bestResult) {
                     bestResult = result;
                     bestIndex = i;
@@ -610,8 +559,8 @@ public class Encoding {
 
 
 
-    private double[] findBestWithAngle(int start, Map<Integer, List<Segment>> possibleSegments, double[][] best, double pow) {
-        if (start >= possibleSegments.size()) {
+    public static double[] findBestWithAngle(int start, Map<Integer, List<MixPieceSegment>> possibleMixPieceSegments, double[][] best, double pow) {
+        if (start >= possibleMixPieceSegments.size()) {
             return new double[] {0, 0};
         }
         if (best[start] != null) {
@@ -622,11 +571,11 @@ public class Encoding {
             double bestAngle = 0;
             double bestN = 0;
             int bestIndex = 0;
-            for (int i=1; i<= possibleSegments.get(start).size(); i++) {
-                double[] result = findBestWithAngle(start + i + 1, possibleSegments, best, pow);
+            for (int i=1; i<= possibleMixPieceSegments.get(start).size(); i++) {
+                double[] result = findBestWithAngle(start + i + 1, possibleMixPieceSegments, best, pow);
                 double n = result[0] + 1;
 //                System.out.println(start);
-                Segment segment = possibleSegments.get(start).get(i-1);
+                MixPieceSegment segment = possibleMixPieceSegments.get(start).get(i-1);
                 double angle = result[1] + Math.pow((segment.getAMax() - segment.getAMin()), pow);
                 double cost = angle / (n * n);
 //                double cost = 1.0 / (n * n);
@@ -644,16 +593,16 @@ public class Encoding {
         }
     }
 
-    private int addSegment(int startIdx, double pow) {
-//        int firstSegments = cache.get(startIdx).size();
-        List<Segment> firstSegments = createSegmentsFromStartIdx(startIdx);
+    public static int addSegment(int startIdx, double pow, List<Point> points, double epsilon, List<MixPieceSegment> segments) {
+//        int firstMixPieceSegments = cache.get(startIdx).size();
+        List<MixPieceSegment> firstMixPieceSegments = createMixPieceSegmentsFromStartIdx(startIdx, points, epsilon);
         int index = 0;
         if (startIdx + 2 < points.size()) {
 //            int best = 2 + cache.get(startIdx + 2).size();
-            int best = 2 + findReachFrom(startIdx + 2, points);
-            for (int i = (int) Math.pow(firstSegments.size(), pow); i<firstSegments.size() && startIdx + i + 2 < points.size(); i++) {
+            int best = 2 + findReachFrom(startIdx + 2, points, epsilon);
+            for (int i = (int) Math.pow(firstMixPieceSegments.size(), pow); i<firstMixPieceSegments.size() && startIdx + i + 2 < points.size(); i++) {
 //                int reach = 2 + i + cache.get(startIdx + i + 2).size();
-                int reach = 2 + i + findReachFrom(startIdx + i + 2, points);
+                int reach = 2 + i + findReachFrom(startIdx + i + 2, points, epsilon);
                 if (reach > best) {
                     best = reach;
                     index = i;
@@ -661,12 +610,12 @@ public class Encoding {
             }
         }
 //        this.segments.add(cache.get(startIdx).get(index));
-        this.segments.add(firstSegments.get(index));
+        segments.add(firstMixPieceSegments.get(index));
         return startIdx + index + 1 + 1;
     }
 
 
-    private int addSegment2(int startIdx, double pow) {
+    private int addMixPieceSegment2(int startIdx, double pow) {
 
 
 //        while (sequence not finished) {
@@ -688,62 +637,62 @@ public class Encoding {
 //
 //            }
 
-        List<Segment> firstSegments = createSegmentsFromStartIdx(startIdx);
-        Segment currSegment = firstSegments.get(firstSegments.size() - 1);
+        List<MixPieceSegment> firstMixPieceSegments = createMixPieceSegmentsFromStartIdx(startIdx);
+        MixPieceSegment currMixPieceSegment = firstMixPieceSegments.get(firstMixPieceSegments.size() - 1);
         if (!this.segments.isEmpty()) {
-            Segment prevSegment = this.segments.get(this.segments.size() - 1);
-            List<Segment> startPrevSegments = createSegmentsFromStartIdx((int) prevSegment.getInitTimestamp());
-            int bLast = startIdx + firstSegments.size();
+            MixPieceSegment prevMixPieceSegment = this.segments.get(this.segments.size() - 1);
+            List<MixPieceSegment> startPrevMixPieceSegments = createMixPieceSegmentsFromStartIdx((int) prevMixPieceSegment.getInitTimestamp());
+            int bLast = startIdx + firstMixPieceSegments.size();
             int bPrev = startIdx - 1;
-            int bStart = (int) prevSegment.getInitTimestamp();
-            double sumAngles = Math.pow(prevSegment.getAMax() - prevSegment.getAMin(), pow) + Math.pow(currSegment.getAMax() - currSegment.getAMin(), pow);
+            int bStart = (int) prevMixPieceSegment.getInitTimestamp();
+            double sumAngles = Math.pow(prevMixPieceSegment.getAMax() - prevMixPieceSegment.getAMin(), pow) + Math.pow(currMixPieceSegment.getAMax() - currMixPieceSegment.getAMin(), pow);
             int bestPrev = bPrev;
             while (bPrev >= 0) {
-                List<Segment> prevSegments = createSegmentsFromStartIdx(bPrev);
-                if (bPrev + prevSegments.size() + 1 < bLast) {
+                List<MixPieceSegment> prevMixPieceSegments = createMixPieceSegmentsFromStartIdx(bPrev);
+                if (bPrev + prevMixPieceSegments.size() + 1 < bLast) {
                     break;
                 }
-                if (bLast - bPrev - 1 >= prevSegments.size() || bPrev - bStart - 1 - 1 < 1) {
+                if (bLast - bPrev - 1 >= prevMixPieceSegments.size() || bPrev - bStart - 1 - 1 < 1) {
                     bPrev--;
                     continue;
                 }
-                Segment newLastSegment = prevSegments.get(bLast - bPrev - 1);
-                Segment newPrevSegment = startPrevSegments.get(bPrev - bStart - 1 - 1);
-                double newSum = Math.pow(newLastSegment.getAMax() - newLastSegment.getAMin(), pow) + Math.pow(newPrevSegment.getAMax() - newPrevSegment.getAMin(), pow);
+                MixPieceSegment newLastMixPieceSegment = prevMixPieceSegments.get(bLast - bPrev - 1);
+                MixPieceSegment newPrevMixPieceSegment = startPrevMixPieceSegments.get(bPrev - bStart - 1 - 1);
+                double newSum = Math.pow(newLastMixPieceSegment.getAMax() - newLastMixPieceSegment.getAMin(), pow) + Math.pow(newPrevMixPieceSegment.getAMax() - newPrevMixPieceSegment.getAMin(), pow);
                 if (newSum > sumAngles) {
                     sumAngles = newSum;
                     bestPrev = bPrev;
-                    prevSegment = newPrevSegment;
-                    currSegment = newLastSegment;
+                    prevMixPieceSegment = newPrevMixPieceSegment;
+                    currMixPieceSegment = newLastMixPieceSegment;
                 }
                 bPrev--;
             }
             this.segments.remove(this.segments.size()-1);
-            this.segments.add(prevSegment);
+            this.segments.add(prevMixPieceSegment);
         }
-        this.segments.add(currSegment);
-        return startIdx + firstSegments.size() + 1;
+        this.segments.add(currMixPieceSegment);
+        return startIdx + firstMixPieceSegments.size() + 1;
     }
 
 
-    private int addSegment(int startIdx, Map<Integer, List<Segment>> possibleSegments, double pow) {
+    private int addSegment(int startIdx, Map<Integer, List<MixPieceSegment>> possibleMixPieceSegments, double pow) {
 //        System.out.println("Getting: " + startIdx);
-//        System.out.println("Size: " + possibleSegments.get(startIdx).size());
-        int firstSegments = possibleSegments.get(startIdx).size();
+//        System.out.println("Size: " + possibleMixPieceSegments.get(startIdx).size());
+        int firstMixPieceSegments = possibleMixPieceSegments.get(startIdx).size();
         int index = 0;
-        if (startIdx + 2 < possibleSegments.size()) {
-            double alpha1 = possibleSegments.get(startIdx).get(0).getAMax() - possibleSegments.get(startIdx).get(0).getAMax();
+        if (startIdx + 2 < possibleMixPieceSegments.size()) {
+            double alpha1 = possibleMixPieceSegments.get(startIdx).get(0).getAMax() - possibleMixPieceSegments.get(startIdx).get(0).getAMax();
             double bestAlpha = Math.pow(alpha1, pow) + Math.pow(
-                    possibleSegments.get(startIdx + 2).get(possibleSegments.get(startIdx + 2).size() -1).getAMax() -
-                            possibleSegments.get(startIdx + 2).get(possibleSegments.get(startIdx + 2).size() -1).getAMin(), pow);
-            int best = 2 + possibleSegments.get(startIdx + 2).size();
+                    possibleMixPieceSegments.get(startIdx + 2).get(possibleMixPieceSegments.get(startIdx + 2).size() -1).getAMax() -
+                            possibleMixPieceSegments.get(startIdx + 2).get(possibleMixPieceSegments.get(startIdx + 2).size() -1).getAMin(), pow);
+            int best = 2 + possibleMixPieceSegments.get(startIdx + 2).size();
 //            System.out.println(0 + ": " + startIdx + " " + best);
-            for (int i=1; i<firstSegments && startIdx + i + 2 < possibleSegments.size(); i++) {
+            for (int i=1; i<firstMixPieceSegments && startIdx + i + 2 < possibleMixPieceSegments.size(); i++) {
                 double alphaTotal = Math.pow(alpha1, pow) + Math.pow(
-                        possibleSegments.get(startIdx + i + 2).get(possibleSegments.get(startIdx + i + 2).size() -1).getAMax() -
-                                possibleSegments.get(startIdx + i + 2).get(possibleSegments.get(startIdx + i + 2).size() -1).getAMin(), pow);
+                        possibleMixPieceSegments.get(startIdx + i + 2).get(possibleMixPieceSegments.get(startIdx + i + 2).size() -1).getAMax() -
+                                possibleMixPieceSegments.get(startIdx + i + 2).get(possibleMixPieceSegments.get(startIdx + i + 2).size() -1).getAMin(), pow);
 //                System.out.println(i + ": " + startIdx + " " + best);
-                int reach = 2 + i + possibleSegments.get(startIdx + i + 2).size();
+                int reach = 2 + i + possibleMixPieceSegments.get(startIdx + i + 2).size();
                 if (reach > best) {
                     best = reach;
                     index = i;
@@ -756,25 +705,25 @@ public class Encoding {
                 }
             }
         }
-        this.segments.add(possibleSegments.get(startIdx).get(index));
+        this.segments.add(possibleMixPieceSegments.get(startIdx).get(index));
         return startIdx + index + 1 + 1;
     }
 
-    private List<Segment> mergePerB(List<Segment> segments) {
+    private List<MixPieceSegment> mergePerB(List<MixPieceSegment> segments) {
         double aMinTemp = -Double.MAX_VALUE;
         double aMaxTemp = Double.MAX_VALUE;
         double b = Double.NaN;
         List<Long> timestamps = new ArrayList<>();
-        List<Segment> mergedSegments = new ArrayList<>();
+        List<MixPieceSegment> mergedMixPieceSegments = new ArrayList<>();
 
-        segments.sort(Comparator.comparingDouble(Segment::getB).thenComparingDouble(Segment::getA));
+        segments.sort(Comparator.comparingDouble(MixPieceSegment::getB).thenComparingDouble(MixPieceSegment::getA));
         for (int i = 0; i < segments.size(); i++) {
             if (b != segments.get(i).getB()) {
                 if (timestamps.size() == 1)
-                    mergedSegments.add(new Segment(timestamps.get(0), aMinTemp, aMaxTemp, b));
+                    mergedMixPieceSegments.add(new MixPieceSegment(timestamps.get(0), aMinTemp, aMaxTemp, b));
                 else {
                     for (Long timestamp : timestamps)
-                        mergedSegments.add(new Segment(timestamp, aMinTemp, aMaxTemp, b));
+                        mergedMixPieceSegments.add(new MixPieceSegment(timestamp, aMinTemp, aMaxTemp, b));
                 }
                 timestamps.clear();
                 timestamps.add(segments.get(i).getInitTimestamp());
@@ -788,10 +737,10 @@ public class Encoding {
                 aMinTemp = Math.max(aMinTemp, segments.get(i).getAMin());
                 aMaxTemp = Math.min(aMaxTemp, segments.get(i).getAMax());
             } else {
-                if (timestamps.size() == 1) mergedSegments.add(segments.get(i - 1));
+                if (timestamps.size() == 1) mergedMixPieceSegments.add(segments.get(i - 1));
                 else {
                     for (long timestamp : timestamps)
-                        mergedSegments.add(new Segment(timestamp, aMinTemp, aMaxTemp, b));
+                        mergedMixPieceSegments.add(new MixPieceSegment(timestamp, aMinTemp, aMaxTemp, b));
                 }
                 timestamps.clear();
                 timestamps.add(segments.get(i).getInitTimestamp());
@@ -801,31 +750,31 @@ public class Encoding {
         }
         if (!timestamps.isEmpty()) {
             if (timestamps.size() == 1)
-                mergedSegments.add(new Segment(timestamps.get(0), aMinTemp, aMaxTemp, b));
+                mergedMixPieceSegments.add(new MixPieceSegment(timestamps.get(0), aMinTemp, aMaxTemp, b));
             else {
                 for (long timestamp : timestamps)
-                    mergedSegments.add(new Segment(timestamp, aMinTemp, aMaxTemp, b));
+                    mergedMixPieceSegments.add(new MixPieceSegment(timestamp, aMinTemp, aMaxTemp, b));
             }
         }
 
-        return mergedSegments;
+        return mergedMixPieceSegments;
     }
 
 
-    private static void mergePerBNew(List<Segment> segments, List<Segment> mergedSegments, List<Segment> unmergedSegments) {
+    private static void mergePerBNew(List<MixPieceSegment> segments, List<MixPieceSegment> mergedMixPieceSegments, List<MixPieceSegment> unmergedMixPieceSegments) {
         double aMinTemp = -Double.MAX_VALUE;
         double aMaxTemp = Double.MAX_VALUE;
         double b = Double.NaN;
         List<Long> timestamps = new ArrayList<>();
 
-        segments.sort(Comparator.comparingDouble(Segment::getB).thenComparingDouble(Segment::getA));
+        segments.sort(Comparator.comparingDouble(MixPieceSegment::getB).thenComparingDouble(MixPieceSegment::getA));
         for (int i = 0; i < segments.size(); i++) {
             if (b != segments.get(i).getB()) {
                 if (timestamps.size() == 1)
-                    unmergedSegments.add(new Segment(timestamps.get(0), aMinTemp, aMaxTemp, b));
+                    unmergedMixPieceSegments.add(new MixPieceSegment(timestamps.get(0), aMinTemp, aMaxTemp, b));
                 else {
                     for (Long timestamp : timestamps)
-                        mergedSegments.add(new Segment(timestamp, aMinTemp, aMaxTemp, b));
+                        mergedMixPieceSegments.add(new MixPieceSegment(timestamp, aMinTemp, aMaxTemp, b));
                 }
                 timestamps.clear();
                 timestamps.add(segments.get(i).getInitTimestamp());
@@ -839,10 +788,10 @@ public class Encoding {
                 aMinTemp = Math.max(aMinTemp, segments.get(i).getAMin());
                 aMaxTemp = Math.min(aMaxTemp, segments.get(i).getAMax());
             } else {
-                if (timestamps.size() == 1) unmergedSegments.add(segments.get(i - 1));
+                if (timestamps.size() == 1) unmergedMixPieceSegments.add(segments.get(i - 1));
                 else {
                     for (long timestamp : timestamps)
-                        mergedSegments.add(new Segment(timestamp, aMinTemp, aMaxTemp, b));
+                        mergedMixPieceSegments.add(new MixPieceSegment(timestamp, aMinTemp, aMaxTemp, b));
                 }
                 timestamps.clear();
                 timestamps.add(segments.get(i).getInitTimestamp());
@@ -852,21 +801,21 @@ public class Encoding {
         }
         if (!timestamps.isEmpty()) {
             if (timestamps.size() == 1)
-                unmergedSegments.add(new Segment(timestamps.get(0), aMinTemp, aMaxTemp, b));
+                unmergedMixPieceSegments.add(new MixPieceSegment(timestamps.get(0), aMinTemp, aMaxTemp, b));
             else {
                 for (long timestamp : timestamps)
-                    mergedSegments.add(new Segment(timestamp, aMinTemp, aMaxTemp, b));
+                    mergedMixPieceSegments.add(new MixPieceSegment(timestamp, aMinTemp, aMaxTemp, b));
             }
         }
     }
 
-    private static void mergeAll(List<Segment> segments, List<Segment> mergedSegments, List<Segment> unmergedSegments) {
+    private static void mergeAll(List<MixPieceSegment> segments, List<MixPieceSegment> mergedMixPieceSegments, List<MixPieceSegment> unmergedMixPieceSegments) {
         double aMinTemp = -Double.MAX_VALUE;
         double aMaxTemp = Double.MAX_VALUE;
         List<Double> bValues = new ArrayList<>();
         List<Long> timestamps = new ArrayList<>();
 
-        segments.sort(Comparator.comparingDouble(Segment::getAMin));
+        segments.sort(Comparator.comparingDouble(MixPieceSegment::getAMin));
         for (int i = 0; i < segments.size(); i++) {
             if (segments.get(i).getAMin() <= aMaxTemp && segments.get(i).getAMax() >= aMinTemp) {
                 timestamps.add(segments.get(i).getInitTimestamp());
@@ -874,10 +823,10 @@ public class Encoding {
                 aMaxTemp = Math.min(aMaxTemp, segments.get(i).getAMax());
                 bValues.add(segments.get(i).getB());
             } else {
-                if (timestamps.size() == 1) unmergedSegments.add(segments.get(i - 1));
+                if (timestamps.size() == 1) unmergedMixPieceSegments.add(segments.get(i - 1));
                 else {
                     for (int j = 0; j < timestamps.size(); j++)
-                        mergedSegments.add(new Segment(timestamps.get(j), aMinTemp, aMaxTemp, bValues.get(j)));
+                        mergedMixPieceSegments.add(new MixPieceSegment(timestamps.get(j), aMinTemp, aMaxTemp, bValues.get(j)));
                 }
                 timestamps.clear();
                 timestamps.add(segments.get(i).getInitTimestamp());
@@ -889,28 +838,28 @@ public class Encoding {
         }
         if (!timestamps.isEmpty()) {
             if (timestamps.size() == 1)
-                unmergedSegments.add(new Segment(timestamps.get(0), aMinTemp, aMaxTemp, bValues.get(0)));
+                unmergedMixPieceSegments.add(new MixPieceSegment(timestamps.get(0), aMinTemp, aMaxTemp, bValues.get(0)));
             else {
                 for (int i = 0; i < timestamps.size(); i++)
-                    mergedSegments.add(new Segment(timestamps.get(i), aMinTemp, aMaxTemp, bValues.get(i)));
+                    mergedMixPieceSegments.add(new MixPieceSegment(timestamps.get(i), aMinTemp, aMaxTemp, bValues.get(i)));
             }
         }
     }
 
-    private static void merge(List<Segment> segments, List<Segment> perBSegments, List<Segment> perASegments, List<Segment> restSegments) {
-        perBSegments = new ArrayList<>();
-        perASegments = new ArrayList<>();
-        restSegments = new ArrayList<>();
-        List<Segment> temp = new ArrayList<>();
+    private static void merge(List<MixPieceSegment> segments, List<MixPieceSegment> perBMixPieceSegments, List<MixPieceSegment> perAMixPieceSegments, List<MixPieceSegment> restMixPieceSegments) {
+        perBMixPieceSegments = new ArrayList<>();
+        perAMixPieceSegments = new ArrayList<>();
+        restMixPieceSegments = new ArrayList<>();
+        List<MixPieceSegment> temp = new ArrayList<>();
 
-        mergePerBNew(segments, perBSegments, temp);
+        mergePerBNew(segments, perBMixPieceSegments, temp);
         if (!temp.isEmpty()) {
-            mergeAll(temp, perASegments, restSegments);
+            mergeAll(temp, perAMixPieceSegments, restMixPieceSegments);
         }
     }
 
     public List<Point> decompress() {
-        segments.sort(Comparator.comparingLong(Segment::getInitTimestamp));
+        segments.sort(Comparator.comparingLong(MixPieceSegment::getInitTimestamp));
         List<Point> points = new ArrayList<>();
         long currentTimeStamp = segments.get(0).getInitTimestamp();
 
@@ -930,9 +879,9 @@ public class Encoding {
         return points;
     }
 
-    private void toByteArrayPerBSegments(List<Segment> segments, boolean variableByte, ByteArrayOutputStream outStream) throws IOException {
+    private void toByteArrayPerBSegments(List<MixPieceSegment> segments, boolean variableByte, ByteArrayOutputStream outStream) throws IOException {
         TreeMap<Integer, HashMap<Double, List<Long>>> input = new TreeMap<>();
-        for (Segment segment : segments) {
+        for (MixPieceSegment segment : segments) {
             double a = segment.getA();
             int b = (int) Math.round(segment.getB() / epsilon);
             long t = segment.getInitTimestamp();
@@ -945,16 +894,16 @@ public class Encoding {
         if (input.isEmpty()) return;
         int previousB = input.firstKey();
         VariableByteEncoder.write(previousB, outStream);
-        for (Map.Entry<Integer, HashMap<Double, List<Long>>> bSegments : input.entrySet()) {
-            VariableByteEncoder.write(bSegments.getKey() - previousB, outStream);
-            previousB = bSegments.getKey();
-            VariableByteEncoder.write(bSegments.getValue().size(), outStream);
-            for (Map.Entry<Double, List<Long>> aSegment : bSegments.getValue().entrySet()) {
-                FloatEncoder.write(aSegment.getKey().floatValue(), outStream);
-                if (variableByte) Collections.sort(aSegment.getValue());
-                VariableByteEncoder.write(aSegment.getValue().size(), outStream);
+        for (Map.Entry<Integer, HashMap<Double, List<Long>>> bMixPieceSegments : input.entrySet()) {
+            VariableByteEncoder.write(bMixPieceSegments.getKey() - previousB, outStream);
+            previousB = bMixPieceSegments.getKey();
+            VariableByteEncoder.write(bMixPieceSegments.getValue().size(), outStream);
+            for (Map.Entry<Double, List<Long>> aMixPieceSegment : bMixPieceSegments.getValue().entrySet()) {
+                FloatEncoder.write(aMixPieceSegment.getKey().floatValue(), outStream);
+                if (variableByte) Collections.sort(aMixPieceSegment.getValue());
+                VariableByteEncoder.write(aMixPieceSegment.getValue().size(), outStream);
                 long previousTS = 0;
-                for (Long timestamp : aSegment.getValue()) {
+                for (Long timestamp : aMixPieceSegment.getValue()) {
                     if (variableByte) VariableByteEncoder.write((int) (timestamp - previousTS), outStream);
                     else UIntEncoder.write(timestamp, outStream);
                     previousTS = timestamp;
@@ -963,100 +912,26 @@ public class Encoding {
         }
     }
 
-    private static void toByteArrayPerBSegments(List<Segment> segments, ByteArrayOutputStream outStream, double epsilon, int globalMinB) throws IOException {
-        TreeMap<Integer, HashMap<Double, ArrayList<Long>>> input = new TreeMap<>();
-        for (Segment segment : segments) {
-            double a = segment.getA();
-            int b = (int) Math.round(segment.getB() / epsilon);
-            long t = segment.getInitTimestamp();
-            if (!input.containsKey(b)) input.put(b, new HashMap<>());
-            if (!input.get(b).containsKey(a)) input.get(b).put(a, new ArrayList<>());
-            input.get(b).get(a).add(t);
-        }
-
-        VariableByteEncoder.write(input.size(), outStream);
-        if (input.isEmpty())
-            return;
-        int previousB = input.firstKey() - globalMinB;
-        VariableByteEncoder.write(previousB, outStream);
-        for (Map.Entry<Integer, HashMap<Double, ArrayList<Long>>> bSegments : input.entrySet()) {
-            VariableByteEncoder.write(bSegments.getKey() - globalMinB - previousB, outStream);
-            previousB = bSegments.getKey() - globalMinB;
-            VariableByteEncoder.write(bSegments.getValue().size(), outStream);
-            for (Map.Entry<Double, ArrayList<Long>> aSegment : bSegments.getValue().entrySet()) {
-                FloatEncoder.write(aSegment.getKey().floatValue(), outStream);
-                Collections.sort(aSegment.getValue());
-                VariableByteEncoder.write(aSegment.getValue().size(), outStream);
-                long previousTS = 0;
-                for (Long timestamp : aSegment.getValue()) {
-                    VariableByteEncoder.write((int) (timestamp - previousTS), outStream);
-                    previousTS = timestamp;
-                }
-            }
-        }
-    }
-
-    private static void toByteArrayPerASegments(List<Segment> segments, ByteArrayOutputStream outStream, double epsilon, int globalMinB) throws IOException {
-        TreeMap<Double, List<Segment>> input = new TreeMap<>();
-        for (Segment segment : segments) {
-            if (!input.containsKey(segment.getA())) input.put(segment.getA(), new ArrayList<>());
-            input.get(segment.getA()).add(segment);
-        }
-
-        VariableByteEncoder.write(input.size(), outStream);
-        for (Map.Entry<Double, List<Segment>> aSegments : input.entrySet()) {
-            FloatEncoder.write(aSegments.getKey().floatValue(), outStream);
-            VariableByteEncoder.write(aSegments.getValue().size(), outStream);
-            aSegments.getValue().sort(Comparator.comparingDouble(Segment::getB));
-            int previousB = (int) Math.round(aSegments.getValue().get(0).getB() / epsilon) - globalMinB;
-            VariableByteEncoder.write(previousB, outStream);
-            for (Segment segment : aSegments.getValue()) {
-                VariableByteEncoder.write((int) (Math.round(segment.getB() / epsilon) - globalMinB - previousB), outStream);
-                previousB = (int) Math.round(segment.getB() / epsilon) - globalMinB;
-                UIntEncoder.write(segment.getInitTimestamp(), outStream);
-            }
-        }
-    }
-
-    private static void toByteArrayRestSegments(List<Segment> segments, ByteArrayOutputStream outStream, double epsilon, int globalMinB) throws IOException {
-        VariableByteEncoder.write(segments.size(), outStream);
-        if (segments.isEmpty())
-            return;
-        segments.sort(Comparator.comparingDouble(Segment::getB));
-        int previousB = (int) Math.round(segments.get(0).getB() / epsilon) - globalMinB;
-        VariableByteEncoder.write(previousB, outStream);
-        for (Segment segment : segments) {
-            VariableByteEncoder.write((int) (Math.round(segment.getB() / epsilon) - globalMinB - previousB), outStream);
-            previousB = (int) Math.round(segment.getB() / epsilon) - globalMinB;
-            FloatEncoder.write((float) segment.getA(), outStream);
-            UIntEncoder.write(segment.getInitTimestamp(), outStream);
-        }
-    }
-
     public byte[] toByteArray(boolean variableByte, boolean zstd) throws IOException {
-        if (byteArray == null) {
-            ByteArrayOutputStream outStream = new ByteArrayOutputStream();
-            byte[] bytes;
+        ByteArrayOutputStream outStream = new ByteArrayOutputStream();
+        byte[] bytes;
 
-            FloatEncoder.write((float) epsilon, outStream);
-            toByteArrayPerBSegments(segments, variableByte, outStream);
+        FloatEncoder.write((float) epsilon, outStream);
+        toByteArrayPerBSegments(segments, variableByte, outStream);
 
-            if (variableByte) VariableByteEncoder.write((int) lastTimeStamp, outStream);
-            else UIntEncoder.write(lastTimeStamp, outStream);
+        if (variableByte) VariableByteEncoder.write((int) lastTimeStamp, outStream);
+        else UIntEncoder.write(lastTimeStamp, outStream);
 
-            if (zstd) bytes = Zstd.compress(outStream.toByteArray());
-            else bytes = outStream.toByteArray();
+        if (zstd) bytes = Zstd.compress(outStream.toByteArray());
+        else bytes = outStream.toByteArray();
 
-            outStream.close();
+        outStream.close();
 
-            return bytes;
-        } else {
-            return byteArray;
-        }
+        return bytes;
     }
 
-    private List<Segment> readMergedPerBSegments(boolean variableByte, ByteArrayInputStream inStream) throws IOException {
-        ArrayList<Segment> segments = new ArrayList<>();
+    private List<MixPieceSegment> readMergedPerBMixPieceSegments(boolean variableByte, ByteArrayInputStream inStream) throws IOException {
+        ArrayList<MixPieceSegment> segments = new ArrayList<>();
         long numB = VariableByteEncoder.read(inStream);
         if (numB == 0) return segments;
         int previousB = VariableByteEncoder.read(inStream);
@@ -1071,7 +946,7 @@ public class Encoding {
                 for (int k = 0; k < numTimestamps; k++) {
                     if (variableByte) timestamp += VariableByteEncoder.read(inStream);
                     else timestamp = UIntEncoder.read(inStream);
-                    segments.add(new Segment(timestamp, a, (float) (b * epsilon)));
+                    segments.add(new MixPieceSegment(timestamp, a, (float) (b * epsilon)));
                 }
             }
         }
@@ -1086,7 +961,7 @@ public class Encoding {
         ByteArrayInputStream inStream = new ByteArrayInputStream(binary);
 
         this.epsilon = FloatEncoder.read(inStream);
-        this.segments = readMergedPerBSegments(variableByte, inStream);
+        this.segments = readMergedPerBMixPieceSegments(variableByte, inStream);
         if (variableByte) this.lastTimeStamp = VariableByteEncoder.read(inStream);
         else this.lastTimeStamp = UIntEncoder.read(inStream);
         inStream.close();
