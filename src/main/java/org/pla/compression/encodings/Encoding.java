@@ -574,7 +574,6 @@ public class Encoding {
             for (int i=1; i<= possibleMixPieceSegments.get(start).size(); i++) {
                 double[] result = findBestWithAngle(start + i + 1, possibleMixPieceSegments, best, pow);
                 double n = result[0] + 1;
-//                System.out.println(start);
                 MixPieceSegment segment = possibleMixPieceSegments.get(start).get(i-1);
                 double angle = result[1] + Math.pow((segment.getAMax() - segment.getAMin()), pow);
                 double cost = angle / (n * n);
@@ -588,7 +587,6 @@ public class Encoding {
                 }
             }
             best[start] = new double[]{bestN, bestAngle, bestIndex};
-//            System.out.println("Best for: " + start + " is: " + bestResult);
             return new double[] {bestN, bestAngle};
         }
     }

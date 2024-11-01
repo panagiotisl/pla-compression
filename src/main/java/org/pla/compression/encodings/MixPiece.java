@@ -3,6 +3,8 @@ package org.pla.compression.encodings;
 import com.github.luben.zstd.Zstd;
 import me.lemire.integercompression.IntWrapper;
 import me.lemire.integercompression.IntegerCODEC;
+import me.lemire.integercompression.Composition;
+import me.lemire.integercompression.VariableByte;
 import me.lemire.integercompression.Simple16;
 import org.pla.compression.encodings.encoders.FloatEncoder;
 import org.pla.compression.encodings.encoders.UIntEncoder;
@@ -33,8 +35,8 @@ public class MixPiece {
     private static int globalMinB;
     private static long lastTimeStamp;
 
-//    private static IntegerCODEC CODEC = new Composition(new Simple16(), new VariableByte());
-    private static IntegerCODEC CODEC = new Simple16();
+    private static IntegerCODEC CODEC = new Composition(new Simple16(), new VariableByte());
+//    private static IntegerCODEC CODEC = new Simple16();
 
     /**
      * Compress a list of Points and return a binary representation
@@ -302,6 +304,7 @@ public class MixPiece {
 
 
         for (int i = 0; i < segments.size() - 1; i++) {
+            //System.out.println(String.format( "%d,%.5f,%d,%.5f", segments.get(i).getInitTimestamp(), (segments.get(i).getA() * (currentTimeStamp - segments.get(i).getInitTimestamp()) + segments.get(i).getB()) , segments.get(i+1).getInitTimestamp() , (segments.get(i).getA() * (currentTimeStamp - segments.get(i+1).getInitTimestamp()) + segments.get(i).getB()) ));
             while (currentTimeStamp < segments.get(i + 1).getInitTimestamp()) {
                 points.add(new Point(currentTimeStamp, segments.get(i).getA() * (currentTimeStamp - segments.get(i).getInitTimestamp()) + segments.get(i).getB()));
                 currentTimeStamp++;
