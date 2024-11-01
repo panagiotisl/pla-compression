@@ -1,5 +1,7 @@
 package org.pla.compression.util;
 
+import org.pla.compression.encodings.Point;
+
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
