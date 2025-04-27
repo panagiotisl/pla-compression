@@ -141,7 +141,7 @@ public class TestPLA {
             TimeSeries ts = TimeSeriesReader.getTimeSeries(getClass().getResourceAsStream(filename), delimiter, true);
             for (double epsilonPct = epsilonStart; epsilonPct <= epsilonEnd; epsilonPct += epsilonStep) {
         		long dur = 0;
-                for (int i=0;i<10;i++){
+                /*for (int i=0;i<10;i++){
                             double[] simpiece = Encoding(ts.data, ts.range * epsilonPct, false, false, 1, 0.0);
                             dur += compressDuration.toMillis();
                             if(i==9) System.out.printf("Sim-Piece\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\t%.2f\n", epsilonPct * 100, (double) ts.size / simpiece[0], dur/10, (long) simpiece[1], simpiece[2]/ts.data.size(), simpiece[2]/(ts.range * ts.data.size()), ts.range);
@@ -151,7 +151,7 @@ public class TestPLA {
                             double[] simpiece = Encoding(ts.data, ts.range * epsilonPct, false, false, 5, 0.0);
                             dur += compressDuration.toMillis();
                             if(i==9) System.out.printf("Sim-Piece*\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\t%.2f\n", epsilonPct * 100, (double) ts.size / simpiece[0], dur/10, (long) simpiece[1], simpiece[2]/ts.data.size(), simpiece[2]/(ts.range * ts.data.size()), ts.range);
-                }
+                }*/
                 dur = 0;
                 for (int i=0;i<10;i++){
                     double[] simpiece = MixPiece(ts.data, ts.range * epsilonPct, false, false);
@@ -164,14 +164,14 @@ public class TestPLA {
                 	for (int i=0;i<5;i++){
         	        	double[] greedy = Encoding(ts.data, ts.range * epsilonPct, false, false, 2, p);
 				        dur += compressDuration.toMillis();
-	                	if(i==4)System.out.printf("Tunable-Peek-Ahead(^%.2f)\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\n", p, epsilonPct * 100, (double) ts.size / greedy[0], dur/5, (long)greedy[1], greedy[2]/ts.data.size(), greedy[2]/(ts.range * ts.data.size()));
+	                	if(i==4)System.out.printf("Glancer(^%.2f)\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\n", p, epsilonPct * 100, (double) ts.size / greedy[0], dur/5, (long)greedy[1], greedy[2]/ts.data.size(), greedy[2]/(ts.range * ts.data.size()));
 			        }
                     if(p > 0.9) step = 0.01;
 		        }
                 double[] best0 = Encoding(ts.data, ts.range * epsilonPct, false, false, 0, 0.0);
-                System.out.printf("Quant-Optimal\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\n", epsilonPct * 100, (double) ts.size / best0[0], compressDuration.toMillis(), (long)best0[1], best0[2]/ts.data.size(), best0[2]/(ts.range * ts.data.size()));
-                best0 = Encoding(ts.data, ts.range * epsilonPct, false, false, 0, Math.pow(2, -18));
-                System.out.printf("Angle-Aware(^%.8f)\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\n", Math.pow(2, -18), epsilonPct * 100, (double) ts.size / best0[0], compressDuration.toMillis(), (long)best0[1], best0[2]/ts.data.size(), best0[2]/(ts.range * ts.data.size()));
+                System.out.printf("Min-Segments\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\n", epsilonPct * 100, (double) ts.size / best0[0], compressDuration.toMillis(), (long)best0[1], best0[2]/ts.data.size(), best0[2]/(ts.range * ts.data.size()));
+                best0 = Encoding(ts.data, ts.range * epsilonPct, false, false, 0, Math.pow(2, -20));
+                System.out.printf("Fuser(^%.8f)\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\n", Math.pow(2, -18), epsilonPct * 100, (double) ts.size / best0[0], compressDuration.toMillis(), (long)best0[1], best0[2]/ts.data.size(), best0[2]/(ts.range * ts.data.size()));
 
                 System.out.println();
             }
@@ -188,14 +188,14 @@ public class TestPLA {
             TimeSeries ts = TimeSeriesReader.getTimeSeries(getClass().getResourceAsStream(filename), delimiter, true);
             for (double epsilonPct = epsilonStart; epsilonPct <= epsilonEnd; epsilonPct += epsilonStep) {
                 long dur = 0, dedur = 0;
-                for (int i=0;i<10;i++){
+                /*for (int i=0;i<10;i++){
                     double[] simpiece = Encoding(ts.data, ts.range * epsilonPct, false, false, 1, 0.0);
                     dur += compressDuration.toNanos();
                     dedur += decompressDuration.toNanos();
                     if(i==9) {
 						System.out.printf("Sim-Piece\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\tRMSE: %.10f\tRMSE%%: %.10f\tAmortizedCompressionTime: %.10f\tAmortizedDecompressionTime: %.10f\n", epsilonPct * 100, (double) ts.size / simpiece[0], (long) simpiece[1], simpiece[2]/ts.data.size(), simpiece[2]/(ts.range * ts.data.size()), Math.sqrt(simpiece[3]/ts.data.size()), Math.sqrt(simpiece[3]/(ts.data.size()))/ts.range, ((double)dur/10)/ts.data.size(), ((double)dedur/10)/ts.data.size());
 					}
-                }
+                }*/
                 dur = 0;
                 dedur = 0;
                 for (int i=0;i<10;i++){
@@ -213,16 +213,16 @@ public class TestPLA {
                         double[] greedy = MixPieceTunablePeekAhead(ts.data, ts.range * epsilonPct, false, false, p);
                         dur += compressDuration.toNanos();
                         dedur += decompressDuration.toNanos();
-                        if(i==(iter-1))System.out.printf("Tunable-Peek-Ahead(^%.2f)\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\tRMSE: %.10f\tRMSE%%: %.10f\tAmortizedCompressionTime: %.10f\tAmortizedDecompressionTime: %.10f\n", p, epsilonPct * 100, (double) ts.size / greedy[0], (long)greedy[1], greedy[2]/ts.data.size(), greedy[2]/(ts.range * ts.data.size()), Math.sqrt(greedy[3]/ts.data.size()), Math.sqrt(greedy[3]/(ts.data.size()))/ts.range, ((double)dur/iter)/ts.data.size(), ((double)dedur/iter)/ts.data.size());
+                        if(i==(iter-1))System.out.printf("Glancer(^%.2f)\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\tRMSE: %.10f\tRMSE%%: %.10f\tAmortizedCompressionTime: %.10f\tAmortizedDecompressionTime: %.10f\n", p, epsilonPct * 100, (double) ts.size / greedy[0], (long)greedy[1], greedy[2]/ts.data.size(), greedy[2]/(ts.range * ts.data.size()), Math.sqrt(greedy[3]/ts.data.size()), Math.sqrt(greedy[3]/(ts.data.size()))/ts.range, ((double)dur/iter)/ts.data.size(), ((double)dedur/iter)/ts.data.size());
                     }
                     if(p > 0.9) step = 0.01;
                 }
                 double[] best0 = MixPieceQuantOptimal(ts.data, ts.range * epsilonPct, false, false, 0.0);
-                System.out.printf("Quant-Optimal\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\tRMSE: %.10f\tRMSE%%: %.10f\tAmortizedCompressionTime: %.10f\tAmortizedDecompressionTime: %.10f\n", epsilonPct * 100, (double) ts.size / best0[0], (long)best0[1], best0[2]/ts.data.size(), best0[2]/(ts.range * ts.data.size()), Math.sqrt(best0[3]/ts.data.size()), Math.sqrt(best0[3]/(ts.data.size()))/ts.range, (double) compressDuration.toNanos()/ts.data.size(), (double) decompressDuration.toNanos()/ts.data.size());
-                int pow = -18;
+                System.out.printf("Min-Segments\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\tRMSE: %.10f\tRMSE%%: %.10f\tAmortizedCompressionTime: %.10f\tAmortizedDecompressionTime: %.10f\n", epsilonPct * 100, (double) ts.size / best0[0], (long)best0[1], best0[2]/ts.data.size(), best0[2]/(ts.range * ts.data.size()), Math.sqrt(best0[3]/ts.data.size()), Math.sqrt(best0[3]/(ts.data.size()))/ts.range, (double) compressDuration.toNanos()/ts.data.size(), (double) decompressDuration.toNanos()/ts.data.size());
+                int pow = -20;
                 //for (int pow = -18; pow<=0; pow++) {
                 best0 = MixPieceQuantOptimal(ts.data, ts.range * epsilonPct, false, false, Math.pow(2, pow));
-                System.out.printf("Angle-Aware(^%.8f)\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\tRMSE: %.10f\tRMSE%%: %.10f\tAmortizedCompressionTime: %.10f\tAmortizedDecompressionTime: %.10f\n", Math.pow(2, pow), epsilonPct * 100, (double) ts.size / best0[0], (long)best0[1], best0[2]/ts.data.size(), best0[2]/(ts.range * ts.data.size()), Math.sqrt(best0[3]/ts.data.size()), Math.sqrt(best0[3]/(ts.data.size()))/ts.range, (double) compressDuration.toNanos()/ts.data.size(), (double) decompressDuration.toNanos()/ts.data.size());
+                System.out.printf("Fuser(^%.8f)\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\tRMSE: %.10f\tRMSE%%: %.10f\tAmortizedCompressionTime: %.10f\tAmortizedDecompressionTime: %.10f\n", Math.pow(2, pow), epsilonPct * 100, (double) ts.size / best0[0], (long)best0[1], best0[2]/ts.data.size(), best0[2]/(ts.range * ts.data.size()), Math.sqrt(best0[3]/ts.data.size()), Math.sqrt(best0[3]/(ts.data.size()))/ts.range, (double) compressDuration.toNanos()/ts.data.size(), (double) decompressDuration.toNanos()/ts.data.size());
                 //}
 
                 System.out.println();
