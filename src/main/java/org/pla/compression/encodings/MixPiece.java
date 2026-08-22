@@ -78,6 +78,17 @@ public class MixPiece {
         return new Result(toByteArrayImproved(variableByte, zstd), segments.size());
     }
 
+
+    public static Result compressFractOptimal(List<Point> points, double error, boolean variableByte, boolean zstd, double pow) throws Exception {
+        if (points.isEmpty() || error <= 0) throw new Exception();
+
+        epsilon = error;
+        lastTimeStamp = points.get(points.size() - 1).getTimestamp();
+        ArrayList<MixPieceSegment> segments = compressFractOptimal(points, pow);
+        merge(segments);
+        return new Result(toByteArrayImproved(variableByte, zstd), segments.size());
+    }
+
     /**
      * Decompress a binary representation and return a list of Points
      *
@@ -195,6 +206,29 @@ public class MixPiece {
         return segments;
     }
 
+    private static ArrayList<MixPieceSegment> compressFractOptimal(List<Point> points, double pow) {
+        ArrayList<MixPieceSegment> segments = new ArrayList<>();
+        Map<Integer, List<MixPieceSegment>> possibleMixPieceSegments = new TreeMap<>();
+        for (int i = 0; i <= points.size() - 1; i++) {
+            List<MixPieceSegment> segmentsFromStartIdx = Encoding.createMixPieceSegmentsFromStartIdx(i, points, epsilon);
+            possibleMixPieceSegments.put(i, segmentsFromStartIdx);
+        }
+        double[][] best = new double[points.size()][];
+        double angle = possibleMixPieceSegments.get(points.size() - 1).get(0).getAMax() - possibleMixPieceSegments.get(points.size() - 1).get(0).getAMax();
+        best[points.size() - 1] = new double[]{1, Math.pow(angle, pow), 1};
+        for (int i=points.size()-2; i>=0; i--) {
+            Encoding.findBestWithAngle(i, possibleMixPieceSegments, best, pow);
+        }
+
+        int start = 0;
+        int count = 0;
+        while (start < points.size()) {
+            segments.add(possibleMixPieceSegments.get(start).get((int) (best[start][2]-1)));
+            start += (int) (best[start][2]) + 1;
+            count++;
+        }
+        return segments;
+    }
 
     private static void mergePerB(ArrayList<MixPieceSegment> segments, ArrayList<MixPieceSegment> mergedSegments, ArrayList<MixPieceSegment> unmergedSegments) {
         double aMinTemp = -Double.MAX_VALUE;
