@@ -214,8 +214,7 @@ public class MixPiece {
             possibleMixPieceSegments.put(i, segmentsFromStartIdx);
         }
         double[][] best = new double[points.size()][];
-        double angle = possibleMixPieceSegments.get(points.size() - 1).get(0).getAMax() - possibleMixPieceSegments.get(points.size() - 1).get(0).getAMax();
-        best[points.size() - 1] = new double[]{1, Math.pow(angle, pow), 1};
+        best[points.size() - 1] = new double[]{1, 1, 1};
         for (int i=points.size()-2; i>=0; i--) {
             Encoding.findBestWithAngle(i, possibleMixPieceSegments, best, pow);
         }
