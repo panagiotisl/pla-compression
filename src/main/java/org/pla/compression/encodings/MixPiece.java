@@ -36,6 +36,7 @@ public class MixPiece {
     private static long lastTimeStamp;
 
     private static IntegerCODEC CODEC = new Composition(new Simple16(), new VariableByte());
+    private static double delta = 0.00001;
 //    private static IntegerCODEC CODEC = new Simple16();
 
     /**
@@ -214,18 +215,65 @@ public class MixPiece {
             possibleMixPieceSegments.put(i, segmentsFromStartIdx);
         }
         double[][] best = new double[points.size()][];
-        best[points.size() - 1] = new double[]{1, 1, 1};
+        best[points.size() - 1] = new double[]{1, 1, 1, 1};
         for (int i=points.size()-2; i>=0; i--) {
-            Encoding.findBestWithAngle(i, possibleMixPieceSegments, best, pow);
+            Encoding.findBestFractWithAngle(i, possibleMixPieceSegments, best, pow);
+        }
+        double lambda = best[0][1] / best[0][0];
+        System.out.println(String.format("Finished... Printing lambda\n%.9f - %.2f / %.2f", lambda, best[0][1], best[0][0]));
+
+// Dinkelbach loop
+        while (true) {
+
+            double[][] bestLambda = new double[points.size()][];
+
+            Encoding.findBestLambda(
+                    possibleMixPieceSegments,
+                    bestLambda,
+                    lambda,
+                    pow
+            );
+            // Reconstruct S*
+
+            int start = 0;
+            double A = 0;
+            double L = 0;
+
+            while (start < points.size() - 1) {
+
+                int length = (int) bestLambda[start][1];
+
+                MixPieceSegment segment =
+                        possibleMixPieceSegments
+                                .get(start)
+                                .get(length - 1);
+
+                segments.add(segment);
+
+                A += Math.pow(
+                        segment.getAMax() - segment.getAMin(),
+                        pow);
+
+                L += 1;
+
+                start += length + 1;
+            }
+
+            // Residual
+            double F = A - lambda * L;
+
+            System.out.println(String.format(
+                    "lambda: %.9f, A: %.4f, L: %.4f, F: %.9f",
+                    lambda, A, L, F));
+
+            if (Math.abs(F) <= delta) {
+                break;
+            }
+
+            // Update lambda
+            lambda = A / L;
         }
 
-        int start = 0;
-        int count = 0;
-        while (start < points.size()) {
-            segments.add(possibleMixPieceSegments.get(start).get((int) (best[start][2]-1)));
-            start += (int) (best[start][2]) + 1;
-            count++;
-        }
         return segments;
     }
 

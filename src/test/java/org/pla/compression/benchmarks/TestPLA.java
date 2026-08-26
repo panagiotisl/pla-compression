@@ -246,14 +246,14 @@ public class TestPLA {
 //                    }
 //                    if(p > 0.9) step = 0.01;
 //                }
-                double[] best0 = MixPieceQuantOptimal(ts.data, ts.range * epsilonPct, false, false, 0.0);
-                System.out.printf("Min-Segments\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\tRMSE: %.10f\tRMSE%%: %.10f\tAmortizedCompressionTime: %.10f\tAmortizedDecompressionTime: %.10f\n", epsilonPct * 100, (double) ts.size / best0[0], (long)best0[1], best0[2]/ts.data.size(), best0[2]/(ts.range * ts.data.size()), Math.sqrt(best0[3]/ts.data.size()), Math.sqrt(best0[3]/(ts.data.size()))/ts.range, (double) compressDuration.toNanos()/ts.data.size(), (double) decompressDuration.toNanos()/ts.data.size());
+//                double[] best0 = MixPieceQuantOptimal(ts.data, ts.range * epsilonPct, false, false, 0.0);
+//                System.out.printf("Min-Segments\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\tRMSE: %.10f\tRMSE%%: %.10f\tAmortizedCompressionTime: %.10f\tAmortizedDecompressionTime: %.10f\n", epsilonPct * 100, (double) ts.size / best0[0], (long)best0[1], best0[2]/ts.data.size(), best0[2]/(ts.range * ts.data.size()), Math.sqrt(best0[3]/ts.data.size()), Math.sqrt(best0[3]/(ts.data.size()))/ts.range, (double) compressDuration.toNanos()/ts.data.size(), (double) decompressDuration.toNanos()/ts.data.size());
                 int pow = -20;
                 //for (int pow = -18; pow<=0; pow++) {
 //                best0 = MixPieceQuantOptimal(ts.data, ts.range * epsilonPct, false, false, Math.pow(2, pow));
 //                System.out.printf("TailorPieceDP(^%.8f)\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\tRMSE: %.10f\tRMSE%%: %.10f\tAmortizedCompressionTime: %.10f\tAmortizedDecompressionTime: %.10f\n", Math.pow(2, pow), epsilonPct * 100, (double) ts.size / best0[0], (long)best0[1], best0[2]/ts.data.size(), best0[2]/(ts.range * ts.data.size()), Math.sqrt(best0[3]/ts.data.size()), Math.sqrt(best0[3]/(ts.data.size()))/ts.range, (double) compressDuration.toNanos()/ts.data.size(), (double) decompressDuration.toNanos()/ts.data.size());
                 //}
-                best0 = MixPieceFractOptimal(ts.data, ts.range * epsilonPct, false, false, Math.pow(2, pow));
+                double[] best0 = MixPieceFractOptimal(ts.data, ts.range * epsilonPct, false, false, Math.pow(2, pow));
                 System.out.printf("TailorPieceFP(^%.8f)\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\tRMSE: %.10f\tRMSE%%: %.10f\tAmortizedCompressionTime: %.10f\tAmortizedDecompressionTime: %.10f\n", Math.pow(2, pow), epsilonPct * 100, (double) ts.size / best0[0], (long)best0[1], best0[2]/ts.data.size(), best0[2]/(ts.range * ts.data.size()), Math.sqrt(best0[3]/ts.data.size()), Math.sqrt(best0[3]/(ts.data.size()))/ts.range, (double) compressDuration.toNanos()/ts.data.size(), (double) decompressDuration.toNanos()/ts.data.size());
 
                 System.out.println();

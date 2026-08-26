@@ -591,6 +591,198 @@ public class Encoding {
         }
     }
 
+    public static double[] findBestFractWithAngle(int start, Map<Integer, List<MixPieceSegment>> possibleMixPieceSegments, double[][] best, double pow) {
+        if (start >= possibleMixPieceSegments.size()) {
+            return new double[] {0, 0};
+        }
+        if (best[start] != null) {
+            return new double[] {best[start][0], best[start][1]};
+        }
+        else {
+            double bestResult = Double.NEGATIVE_INFINITY;
+            double bestAngle = 0;
+            double bestN = 0;
+            int bestIndex = 0;
+            for (int i=1; i<= possibleMixPieceSegments.get(start).size(); i++) {
+                double[] result = findBestFractWithAngle(start + i + 1, possibleMixPieceSegments, best, pow);
+                // L[i]
+                double n = result[0] + 1;
+                MixPieceSegment segment = possibleMixPieceSegments.get(start).get(i-1);
+                // A[i]
+                double angle = Math.pow((segment.getAMax() - segment.getAMin()), pow);
+                double totalAngle = result[1] + angle;
+                // C[i]
+                double cost = totalAngle / (n * n);
+                if (cost > bestResult) {
+                    bestResult = cost;
+                    bestAngle = totalAngle;
+                    bestN = n;
+                    bestIndex = i;
+                }
+            }
+            best[start] = new double[]{bestN, bestAngle, bestResult, bestIndex};
+            return new double[] {bestN, bestAngle};
+        }
+    }
+
+    public static void findBestLambda(
+            Map<Integer, List<MixPieceSegment>> possibleMixPieceSegments,
+            double[][] bestLambda,
+            double lambda,
+            double pow) {
+
+        int n = possibleMixPieceSegments.size();
+
+        bestLambda[n - 1] = new double[]{0, 0};
+
+        for (int start = n - 2; start >= 0; start--) {
+
+            double bestCost = Double.NEGATIVE_INFINITY;
+            int bestIndex = -1;
+
+            for (int i = 1;
+                 i <= possibleMixPieceSegments.get(start).size();
+                 i++) {
+
+                int next = start + i + 1;
+
+                if (next >= n) {
+                    continue;
+                }
+
+                MixPieceSegment segment =
+                        possibleMixPieceSegments.get(start).get(i - 1);
+
+                double A = Math.pow(
+                        segment.getAMax() - segment.getAMin(),
+                        pow);
+
+                double cost =
+                        bestLambda[next][0]
+                                + A
+                                - lambda;
+
+                if (cost > bestCost) {
+                    bestCost = cost;
+                    bestIndex = i;
+                }
+            }
+
+            bestLambda[start] =
+                    new double[]{bestCost, bestIndex};
+        }
+    }
+
+    public static void findBestLambda(
+            Map<Integer, List<MixPieceSegment>> possibleMixPieceSegments,
+            double[][] bestLambda,
+            double[][] best,
+            double lambda,
+            double pow) {
+
+        int n = possibleMixPieceSegments.size();
+
+        bestLambda[n - 1] = new double[]{0, 0};
+
+        for (int start = n - 2; start >= 0; start--) {
+
+            double bestCost = Double.NEGATIVE_INFINITY;
+            int bestIndex = -1;
+
+            for (int i = 1;
+                 i <= possibleMixPieceSegments.get(start).size();
+                 i++) {
+                int next = start + i + 1;
+
+//                double suffixCost = 0.0;
+
+//                System.out.println("Start=" + start + " i=" + i + " next=" + next);
+                if (next >= n) {
+                    continue;
+                }
+
+                double suffixCost = bestLambda[next][0];
+//                if (next < n - 1) {
+//                    double suffixA = best[next][1];
+//                    double suffixL = best[next][0];
+//
+//                    suffixCost = suffixA - lambda * suffixL;
+//                }
+
+                MixPieceSegment segment =
+                        possibleMixPieceSegments.get(start).get(i - 1);
+
+                double A = Math.pow(
+                        segment.getAMax() - segment.getAMin(),
+                        pow);
+
+                // One segment contributes one unit to L
+                double L = best[start][0] - best[next][0];
+//                double L = best[next][0];
+//                double L = 1.0;
+
+                double cost =
+                        bestLambda[next][0]
+                                + A
+                                - lambda;
+//                double cost =
+//                        A - lambda * L + suffixCost;
+
+                if (cost > bestCost) {
+                    bestCost = cost;
+                    bestIndex = i;
+                }
+            }
+//            System.out.println("Start=" + start + " i=" + bestIndex + " cost=" + bestCost);
+            bestLambda[start] =
+                    new double[]{bestCost, bestIndex};
+        }
+    }
+
+    /*public static double findBestLambda(
+            int start,
+            Map<Integer, List<MixPieceSegment>> possibleSegments,
+            double[][] bestLambda,
+            double lambda,
+            double pow) {
+        if (start >= possibleSegments.size() - 1) {
+            return 0.0;
+        }
+        if (bestLambda[start] != null) {
+            return bestLambda[start][0];
+        }
+        double bestCost = Double.NEGATIVE_INFINITY;
+        int bestIndex = -1;
+        for (int i = 1; i <= possibleSegments.get(start).size(); i++) {
+
+            double suffixCost = findBestLambda(
+                    start + i + 1,
+                    possibleSegments,
+                    bestLambda,
+                    lambda,
+                    pow
+            );
+            MixPieceSegment segment = possibleSegments.get(start).get(i - 1);
+            double A = Math.pow(
+                    segment.getAMax() - segment.getAMin(),
+                    pow
+            );
+            double L = 1.0;
+            // Equation (5)
+            double cost = A - lambda * L + suffixCost;
+            if (cost > bestCost) {
+                bestCost = cost;
+                bestIndex = i;
+            }
+        }
+        bestLambda[start] = new double[] {
+                bestCost,
+                bestIndex
+        };
+        return bestCost;
+    }*/
+
+
     public static int addSegment(int startIdx, double pow, List<Point> points, double epsilon, List<MixPieceSegment> segments) {
 //        int firstMixPieceSegments = cache.get(startIdx).size();
         List<MixPieceSegment> firstMixPieceSegments = createMixPieceSegmentsFromStartIdx(startIdx, points, epsilon);
