@@ -9,6 +9,7 @@ import me.lemire.integercompression.Simple16;
 import org.pla.compression.encodings.encoders.FloatEncoder;
 import org.pla.compression.encodings.encoders.UIntEncoder;
 import org.pla.compression.encodings.encoders.VariableByteEncoder;
+import org.pla.compression.util.Encoding.DPValue;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -74,6 +75,16 @@ public class MixPiece {
         epsilon = error;
         lastTimeStamp = points.get(points.size() - 1).getTimestamp();
         ArrayList<MixPieceSegment> segments = compressQuantOptimal(points, pow);
+        merge(segments);
+        return new Result(toByteArrayImproved(variableByte, zstd), segments.size());
+    }
+
+    public static Result compress2dDp(List<Point> points, double error, boolean variableByte, boolean zstd, double pow) throws Exception {
+        if (points.isEmpty() || error <= 0) throw new Exception();
+
+        epsilon = error;
+        lastTimeStamp = points.get(points.size() - 1).getTimestamp();
+        ArrayList<MixPieceSegment> segments = compress2dDp(points, pow);
         merge(segments);
         return new Result(toByteArrayImproved(variableByte, zstd), segments.size());
     }
@@ -195,6 +206,62 @@ public class MixPiece {
         return segments;
     }
 
+    private static ArrayList<MixPieceSegment> compress2dDp(List<Point> points, double pow) {
+        ArrayList<MixPieceSegment> segments = new ArrayList<>();
+        Map<Integer, List<MixPieceSegment>> possibleMixPieceSegments = new TreeMap<>();
+        for (int i = 0; i <= points.size() - 1; i++) {
+            List<MixPieceSegment> segmentsFromStartIdx = Encoding.createMixPieceSegmentsFromStartIdx(i, points, epsilon);
+            possibleMixPieceSegments.put(i, segmentsFromStartIdx);
+        }
+        double[][] best = new double[points.size()][];
+        Map<Integer, DPValue>[] c = new Map[points.size()];
+
+        best[points.size() - 1] = new double[]{1, 1, 1};
+        for (int i=points.size()-2; i>=0; i--) {
+            Encoding.findBestWithAngle2d(i, possibleMixPieceSegments, c, pow);
+        }
+//        c[0].entrySet().stream()
+//                .sorted(Map.Entry.comparingByKey())
+//                .limit(7)
+//                .forEach(e -> System.out.println(e.getKey() + " -> (" + e.getValue().getValue() + ", " + e.getValue().getIndex() + ")"));
+
+        double bestLambda = Double.NEGATIVE_INFINITY;
+        int bestK = -1;
+
+        for (Map.Entry<Integer, DPValue> entry : c[0].entrySet()) {
+            int k = entry.getKey();
+            double numerator = entry.getValue().getValue();
+
+            double lambda = numerator / (k * (double) k);
+
+            if (lambda > bestLambda) {
+                bestLambda = lambda;
+                bestK = k;
+            }
+        }
+//        System.out.println("Best k: " + bestK);
+
+        int start = 0;
+        int k = bestK;
+
+        while (k > 0) {
+            DPValue state = c[start].get(k);
+            int i = state.getIndex();
+            MixPieceSegment segment = possibleMixPieceSegments.get(start).get(i - 1);
+            segments.add(segment);
+            start += i + 1;
+            k--;
+        }
+
+//        int start = 0;
+//        int count = 0;
+//        while (start < points.size()) {
+//            segments.add(possibleMixPieceSegments.get(start).get((int) (best[start][2]-1)));
+//            start += (int) (best[start][2]) + 1;
+//            count++;
+//        }
+        return segments;
+    }
 
     private static void mergePerB(ArrayList<MixPieceSegment> segments, ArrayList<MixPieceSegment> mergedSegments, ArrayList<MixPieceSegment> unmergedSegments) {
         double aMinTemp = -Double.MAX_VALUE;
