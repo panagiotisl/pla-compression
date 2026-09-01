@@ -196,12 +196,15 @@ public class MixPiece {
             Encoding.findBestWithAngle(i, possibleMixPieceSegments, best, pow);
         }
 
+        double n = best[0][0];
+        double totalAngle = best[0][1];
+        double cost = totalAngle / (n * n);
+        System.out.println("Number of segments: " + n + " " + "C: " + cost);
+
         int start = 0;
-        int count = 0;
         while (start < points.size()) {
             segments.add(possibleMixPieceSegments.get(start).get((int) (best[start][2]-1)));
             start += (int) (best[start][2]) + 1;
-            count++;
         }
         return segments;
     }
@@ -213,10 +216,9 @@ public class MixPiece {
             List<MixPieceSegment> segmentsFromStartIdx = Encoding.createMixPieceSegmentsFromStartIdx(i, points, epsilon);
             possibleMixPieceSegments.put(i, segmentsFromStartIdx);
         }
-        double[][] best = new double[points.size()][];
+
         Map<Integer, DPValue>[] c = new Map[points.size()];
 
-        best[points.size() - 1] = new double[]{1, 1, 1};
         for (int i=points.size()-2; i>=0; i--) {
             Encoding.findBestWithAngle2d(i, possibleMixPieceSegments, c, pow);
         }
@@ -239,8 +241,9 @@ public class MixPiece {
                 bestK = k;
             }
         }
-//        System.out.println("Best k: " + bestK);
 
+        System.out.println("Number of segments: " + bestK + " C: " + c[0].get(bestK).getValue() / (bestK * (double) bestK)
+        );
         int start = 0;
         int k = bestK;
 
@@ -253,13 +256,6 @@ public class MixPiece {
             k--;
         }
 
-//        int start = 0;
-//        int count = 0;
-//        while (start < points.size()) {
-//            segments.add(possibleMixPieceSegments.get(start).get((int) (best[start][2]-1)));
-//            start += (int) (best[start][2]) + 1;
-//            count++;
-//        }
         return segments;
     }
 

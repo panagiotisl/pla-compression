@@ -559,7 +559,7 @@ public class Encoding {
     }
 
     public static void findBestWithAngle2d(int start, Map<Integer, List<MixPieceSegment>> possibleMixPieceSegments,
-            Map<Integer, DPValue>[] c, double pow) {
+                                           Map<Integer, DPValue>[] c, double pow) {
 
         if (start >= possibleMixPieceSegments.size()) {
             return;
@@ -573,6 +573,47 @@ public class Encoding {
             int next = start + i + 1;
             // Calculate the complete DP for the remainder
             findBestWithAngle2d(next, possibleMixPieceSegments, c, pow);
+            MixPieceSegment segment = possibleMixPieceSegments.get(start).get(i - 1);
+            double angle = Math.pow(segment.getAMax() - segment.getAMin(), pow);
+            if (Double.isInfinite(angle)) {
+                angle = 1.0;
+            }
+            // If this segment reaches the end, it creates a
+            // solution with exactly 1 segment.
+            if (next >= possibleMixPieceSegments.size()) {
+                c[start].put(1, new DPValue(angle, i));
+            }
+            // Otherwise, extend EVERY solution from the remainder.
+            else {
+                for (Map.Entry<Integer, DPValue> entry : c[next].entrySet()) {
+                    int previousK = entry.getKey();
+                    DPValue previous = entry.getValue();
+                    int k = previousK + 1;
+                    double totalAngle = angle + previous.getValue();
+                    DPValue current = c[start].get(k);
+                    if (current == null || totalAngle > current.getValue()) {
+                        c[start].put(k, new DPValue(totalAngle, i));
+                    }
+                }
+            }
+        }
+    }
+
+    public static void findBestWithAngle2dOld(int start, Map<Integer, List<MixPieceSegment>> possibleMixPieceSegments,
+                                           Map<Integer, DPValue>[] c, double pow) {
+
+        if (start >= possibleMixPieceSegments.size()) {
+            return;
+        }
+        if (c[start] != null) {
+            return;
+        }
+        c[start] = new HashMap<>();
+        int size = possibleMixPieceSegments.get(start).size();
+        for (int i = 1; i <= size; i++) {
+            int next = start + i + 1;
+            // Calculate the complete DP for the remainder
+            findBestWithAngle2dOld(next, possibleMixPieceSegments, c, pow);
 
             MixPieceSegment segment = possibleMixPieceSegments.get(start).get(i - 1);
 
@@ -601,42 +642,6 @@ public class Encoding {
         }
     }
 
-    public static double[] findBestWithAngle2d(int start, Map<Integer, List<MixPieceSegment>> possibleMixPieceSegments, double[][] best, Map<Integer, DPValue>[] c, double pow) {
-        if (start >= possibleMixPieceSegments.size()) {
-            return new double[] {0, 0};
-        }
-        if (best[start] != null) {
-            return new double[] {best[start][0], best[start][1]};
-        }
-        else {
-            c[start] = new HashMap<>();
-            double bestResult = Double.NEGATIVE_INFINITY;
-            double bestAngle = 0;
-            double bestN = 0;
-            int bestIndex = 0;
-            int size = possibleMixPieceSegments.get(start).size();
-            for (int i=1; i<= size; i++) {
-                double[] result = findBestWithAngle2d(start + i + 1, possibleMixPieceSegments, best, c, pow);
-                double n = result[0] + 1;
-                int k = (int) n;
-                MixPieceSegment segment = possibleMixPieceSegments.get(start).get(i-1);
-                double angle = Math.pow((segment.getAMax() - segment.getAMin()), pow);
-                double totalAngle = result[1] + angle;
-                double cost = totalAngle / (n * n);
-                if (cost > bestResult) {
-                    bestResult = cost;
-                    bestAngle = totalAngle;
-                    bestN = n;
-                    bestIndex = i;
-                }
-                if (!c[start].containsKey(k) || totalAngle > c[start].get(k).getValue()) {
-                    c[start].put(k, new DPValue(totalAngle, i));
-                }
-            }
-            best[start] = new double[]{bestN, bestAngle, bestIndex};
-            return new double[] {bestN, bestAngle};
-        }
-    }
 
     public static double[] findBestWithAngle(int start, Map<Integer, List<MixPieceSegment>> possibleMixPieceSegments, double[][] best, double pow) {
         if (start >= possibleMixPieceSegments.size()) {
@@ -656,8 +661,6 @@ public class Encoding {
                 MixPieceSegment segment = possibleMixPieceSegments.get(start).get(i-1);
                 double angle = result[1] + Math.pow((segment.getAMax() - segment.getAMin()), pow);
                 double cost = angle / (n * n);
-//                double cost = 1.0 / (n * n);
-//                double cost = 1.0 / n;
                 if (cost > bestResult) {
                     bestResult = cost;
                     bestAngle = angle;
