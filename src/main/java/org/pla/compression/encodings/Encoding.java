@@ -642,8 +642,37 @@ public class Encoding {
         }
     }
 
-
     public static double[] findBestWithAngle(int start, Map<Integer, List<MixPieceSegment>> possibleMixPieceSegments, double[][] best, double pow) {
+        if (start >= possibleMixPieceSegments.size()) {
+            return new double[] {0, 0};
+        }
+        if (best[start] != null) {
+            return new double[] {best[start][0], best[start][1]};
+        }
+        else {
+            double bestAngle = Double.NEGATIVE_INFINITY;
+            double bestN = Double.POSITIVE_INFINITY;
+            int bestIndex = 0;
+            for (int i=1; i<= possibleMixPieceSegments.get(start).size(); i++) {
+                double[] result = findBestWithAngle(start + i + 1, possibleMixPieceSegments, best, pow);
+                double n = result[0] + 1;
+                MixPieceSegment segment = possibleMixPieceSegments.get(start).get(i-1);
+
+                double angle = result[1] + Math.pow((segment.getAMax() - segment.getAMin()), pow);
+//                double angle = result[1] + (segment.getAMax() - segment.getAMin());
+                if (n < bestN || (n == bestN && angle > bestAngle)) {
+                    bestAngle = angle;
+                    bestN = n;
+                    bestIndex = i;
+                }
+            }
+            best[start] = new double[]{bestN, bestAngle, bestIndex};
+            return new double[] {bestN, bestAngle};
+        }
+    }
+
+
+    public static double[] findBestWithAngleOld(int start, Map<Integer, List<MixPieceSegment>> possibleMixPieceSegments, double[][] best, double pow) {
         if (start >= possibleMixPieceSegments.size()) {
             return new double[] {0, 0};
         }

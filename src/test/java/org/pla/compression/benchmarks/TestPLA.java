@@ -215,7 +215,7 @@ public class TestPLA {
             System.out.println(filename);
             String delimiter = ",";
             TimeSeries ts = TimeSeriesReader.getTimeSeries(getClass().getResourceAsStream(filename), delimiter, true);
-            for (double epsilonPct = epsilonStart; epsilonPct <= epsilonEnd; epsilonPct += epsilonStep) {
+            for (double epsilonPct = epsilonStart; epsilonPct <= epsilonEnd; epsilonPct += 5) {
                 long dur = 0, dedur = 0;
                 /*for (int i=0;i<10;i++){
                     double[] simpiece = Encoding(ts.data, ts.range * epsilonPct, false, false, 1, 0.0);
@@ -246,15 +246,15 @@ public class TestPLA {
 //                    }
 //                    if(p > 0.9) step = 0.01;
 //                }
-//                double[] best0 = MixPieceQuantOptimal(ts.data, ts.range * epsilonPct, false, false, 0.0);
-//                System.out.printf("Min-Segments\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\tRMSE: %.10f\tRMSE%%: %.10f\tAmortizedCompressionTime: %.10f\tAmortizedDecompressionTime: %.10f\n", epsilonPct * 100, (double) ts.size / best0[0], (long)best0[1], best0[2]/ts.data.size(), best0[2]/(ts.range * ts.data.size()), Math.sqrt(best0[3]/ts.data.size()), Math.sqrt(best0[3]/(ts.data.size()))/ts.range, (double) compressDuration.toNanos()/ts.data.size(), (double) decompressDuration.toNanos()/ts.data.size());
-                int pow = -2;
+                double[] best0 = MixPieceQuantOptimal(ts.data, ts.range * epsilonPct, false, false, 0.0);
+                System.out.printf("Min-Segments\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\tRMSE: %.10f\tRMSE%%: %.10f\tAmortizedCompressionTime: %.10f\tAmortizedDecompressionTime: %.10f\n", epsilonPct * 100, (double) ts.size / best0[0], (long)best0[1], best0[2]/ts.data.size(), best0[2]/(ts.range * ts.data.size()), Math.sqrt(best0[3]/ts.data.size()), Math.sqrt(best0[3]/(ts.data.size()))/ts.range, (double) compressDuration.toNanos()/ts.data.size(), (double) decompressDuration.toNanos()/ts.data.size());
+                int pow = -20;
                 //for (int pow = -18; pow<=0; pow++) {
-                double[] best0 = MixPieceQuantOptimal(ts.data, ts.range * epsilonPct, false, false, Math.pow(2, pow));
-                System.out.printf("TailorPieceDP(^%.8f)\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\tRMSE: %.10f\tRMSE%%: %.10f\tAmortizedCompressionTime: %.10f\tAmortizedDecompressionTime: %.10f\n", Math.pow(2, pow), epsilonPct * 100, (double) ts.size / best0[0], (long)best0[1], best0[2]/ts.data.size(), best0[2]/(ts.range * ts.data.size()), Math.sqrt(best0[3]/ts.data.size()), Math.sqrt(best0[3]/(ts.data.size()))/ts.range, (double) compressDuration.toNanos()/ts.data.size(), (double) decompressDuration.toNanos()/ts.data.size());
+                double[] bestDP = MixPieceQuantOptimal(ts.data, ts.range * epsilonPct, false, false, Math.pow(2, pow));
+                System.out.printf("TailorPieceDP(^%.8f)\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\tRMSE: %.10f\tRMSE%%: %.10f\tAmortizedCompressionTime: %.10f\tAmortizedDecompressionTime: %.10f\n", Math.pow(2, pow), epsilonPct * 100, (double) ts.size / bestDP[0], (long)bestDP[1], bestDP[2]/ts.data.size(), bestDP[2]/(ts.range * ts.data.size()), Math.sqrt(bestDP[3]/ts.data.size()), Math.sqrt(bestDP[3]/(ts.data.size()))/ts.range, (double) compressDuration.toNanos()/ts.data.size(), (double) decompressDuration.toNanos()/ts.data.size());
                 //}
-                double[] best2DDP = MixPiece2DDP(ts.data, ts.range * epsilonPct, false, false, Math.pow(2, pow));
-                System.out.printf("TailorPiece2D-DP(^%.8f)\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\tRMSE: %.10f\tRMSE%%: %.10f\tAmortizedCompressionTime: %.10f\tAmortizedDecompressionTime: %.10f\n", Math.pow(2, pow), epsilonPct * 100, (double) ts.size / best2DDP[0], (long)best2DDP[1], best2DDP[2]/ts.data.size(), best2DDP[2]/(ts.range * ts.data.size()), Math.sqrt(best2DDP[3]/ts.data.size()), Math.sqrt(best2DDP[3]/(ts.data.size()))/ts.range, (double) compressDuration.toNanos()/ts.data.size(), (double) decompressDuration.toNanos()/ts.data.size());
+//                double[] best2DDP = MixPiece2DDP(ts.data, ts.range * epsilonPct, false, false, Math.pow(2, pow));
+//                System.out.printf("TailorPiece2D-DP(^%.8f)\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\tRMSE: %.10f\tRMSE%%: %.10f\tAmortizedCompressionTime: %.10f\tAmortizedDecompressionTime: %.10f\n", Math.pow(2, pow), epsilonPct * 100, (double) ts.size / best2DDP[0], (long)best2DDP[1], best2DDP[2]/ts.data.size(), best2DDP[2]/(ts.range * ts.data.size()), Math.sqrt(best2DDP[3]/ts.data.size()), Math.sqrt(best2DDP[3]/(ts.data.size()))/ts.range, (double) compressDuration.toNanos()/ts.data.size(), (double) decompressDuration.toNanos()/ts.data.size());
 
                 System.out.println();
             }
@@ -269,8 +269,10 @@ public class TestPLA {
         double epsilonStep = 0.005;
         double epsilonEnd = 0.051;
 
-        //String[] filenames = {"/Yoga.csv.gz", "/Rock.csv.gz", "/Worms.csv.gz", "/Trace.csv.gz", "/StarLightCurves-sample.csv.gz", "/Car.csv.gz", "/CinCECGTorso-sample2.csv.gz", "/Plane.csv.gz", "/citytemp_f32_sample.csv.gz", "/jane_street_f64_sample.csv.gz", "/solar_wind_f32_sample.csv.gz", "/Lightning.csv.gz", "/Cricket.csv.gz", "/FaceFour.csv.gz", "/WindSpeed_sample.csv.gz" };
-        String[] filenames = { "/Yoga-sample.csv.gz", "/StarLightCurves-sample.csv.gz", "/Car.csv.gz" };
+//        String[] filenames = {"/Yoga.csv.gz", "/Rock.csv.gz", "/Worms.csv.gz", "/Trace.csv.gz", "/StarLightCurves-sample.csv.gz", "/Car.csv.gz", "/CinCECGTorso-sample2.csv.gz", "/Plane.csv.gz", "/citytemp_f32_sample.csv.gz", "/jane_street_f64_sample.csv.gz", "/solar_wind_f32_sample.csv.gz", "/Lightning.csv.gz", "/Cricket.csv.gz", "/FaceFour.csv.gz", "/WindSpeed_sample.csv.gz" };
+        String[] filenames = { "/Yoga-sample.csv.gz", "/Yoga-sample-2.csv.gz", "/Yoga-sample-3.csv.gz", "/Yoga-sample-4.csv.gz", "/Yoga-sample-5.csv.gz", "/StarLightCurves-sample.csv.gz", "/Car.csv.gz" };
+//        String[] filenames = {"/Yoga.csv.gz" };
+
         runAll(filenames, epsilonStart, epsilonStep, epsilonEnd);
     }
 }
