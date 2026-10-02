@@ -230,7 +230,7 @@ public class TestPLA {
                 double[] best0 = Encoding(ts.data, ts.range * epsilonPct, false, false, 0, 0.0);
                 System.out.printf("Min-Segments\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\n", epsilonPct * 100, (double) ts.size / best0[0], compressDuration.toMillis(), (long)best0[1], best0[2]/ts.data.size(), best0[2]/(ts.range * ts.data.size()));
                 best0 = Encoding(ts.data, ts.range * epsilonPct, false, false, 0, Math.pow(2, -20));
-                System.out.printf("TailorPieceDP(^%.8f)\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\n", Math.pow(2, -18), epsilonPct * 100, (double) ts.size / best0[0], compressDuration.toMillis(), (long)best0[1], best0[2]/ts.data.size(), best0[2]/(ts.range * ts.data.size()));
+                System.out.printf("TailorPieceDP(^%.14f)\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\n", Math.pow(2, -18), epsilonPct * 100, (double) ts.size / best0[0], compressDuration.toMillis(), (long)best0[1], best0[2]/ts.data.size(), best0[2]/(ts.range * ts.data.size()));
 
                 System.out.println();
             }
@@ -281,7 +281,7 @@ public class TestPLA {
                 int[] powers = {0, -1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -15, -20, -25, -30, -35, -40, -45, -50, -55, -60, -70, -80};
                 for (int pow : powers) {
                     double[] bestDP = MixPieceQuantOptimal(ts.data, ts.range * epsilonPct, false, false, Math.pow(2, pow));
-                    System.out.printf("TailorPieceDP(^%.8f)\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\tRMSE: %.10f\tRMSE%%: %.10f\tAmortizedCompressionTime: %.10f\tAmortizedDecompressionTime: %.10f\n", Math.pow(2, pow), epsilonPct * 100, (double) ts.size / bestDP[0], (long)bestDP[1], bestDP[2]/ts.data.size(), bestDP[2]/(ts.range * ts.data.size()), Math.sqrt(bestDP[3]/ts.data.size()), Math.sqrt(bestDP[3]/(ts.data.size()))/ts.range, (double) compressDuration.toNanos()/ts.data.size(), (double) decompressDuration.toNanos()/ts.data.size());
+                    System.out.printf("TailorPieceDP(^%.14f)\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\tRMSE: %.10f\tRMSE%%: %.10f\tAmortizedCompressionTime: %.10f\tAmortizedDecompressionTime: %.10f\n", Math.pow(2, pow), epsilonPct * 100, (double) ts.size / bestDP[0], (long)bestDP[1], bestDP[2]/ts.data.size(), bestDP[2]/(ts.range * ts.data.size()), Math.sqrt(bestDP[3]/ts.data.size()), Math.sqrt(bestDP[3]/(ts.data.size()))/ts.range, (double) compressDuration.toNanos()/ts.data.size(), (double) decompressDuration.toNanos()/ts.data.size());
                 }
                 double[] bestDP = MixPieceMinimumAngle(ts.data, ts.range * epsilonPct, false, false);
                 System.out.printf("TailorPieceMA\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\tRMSE: %.10f\tRMSE%%: %.10f\tAmortizedCompressionTime: %.10f\tAmortizedDecompressionTime: %.10f\n", epsilonPct * 100, (double) ts.size / bestDP[0], (long)bestDP[1], bestDP[2]/ts.data.size(), bestDP[2]/(ts.range * ts.data.size()), Math.sqrt(bestDP[3]/ts.data.size()), Math.sqrt(bestDP[3]/(ts.data.size()))/ts.range, (double) compressDuration.toNanos()/ts.data.size(), (double) decompressDuration.toNanos()/ts.data.size());

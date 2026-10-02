@@ -54,7 +54,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>2.22.2</version>
                 <configuration>
-                    <argLine>-Xmx20g</argLine>
+                    <argLine>-Xmx12g</argLine>
                 </configuration>
             </plugin>
             <plugin>
