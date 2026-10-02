@@ -79,6 +79,16 @@ public class MixPiece {
         return new Result(toByteArrayImproved(variableByte, zstd), segments.size());
     }
 
+    public static Result compressMinimumAngle(List<Point> points, double error, boolean variableByte, boolean zstd) throws Exception {
+        if (points.isEmpty() || error <= 0) throw new Exception();
+
+        epsilon = error;
+        lastTimeStamp = points.get(points.size() - 1).getTimestamp();
+        ArrayList<MixPieceSegment> segments = compressMinimumAngle(points);
+        merge(segments);
+        return new Result(toByteArrayImproved(variableByte, zstd), segments.size());
+    }
+
     public static Result compress2dDp(List<Point> points, double error, boolean variableByte, boolean zstd, double pow) throws Exception {
         if (points.isEmpty() || error <= 0) throw new Exception();
 
@@ -193,7 +203,34 @@ public class MixPiece {
         double angle = possibleMixPieceSegments.get(points.size() - 1).get(0).getAMax() - possibleMixPieceSegments.get(points.size() - 1).get(0).getAMax();
         best[points.size() - 1] = new double[]{1, Math.pow(angle, pow), 1};
         for (int i=points.size()-2; i>=0; i--) {
-            Encoding.findBestWithAngle(i, possibleMixPieceSegments, best, pow);
+            Encoding.findBestWithMaximumAngle(i, possibleMixPieceSegments, best, pow);
+        }
+
+        double n = best[0][0];
+        double totalAngle = best[0][1];
+        double cost = totalAngle / (n * n);
+        System.out.println("Number of segments: " + n + " " + "C: " + cost);
+
+        int start = 0;
+        while (start < points.size()) {
+            segments.add(possibleMixPieceSegments.get(start).get((int) (best[start][2]-1)));
+            start += (int) (best[start][2]) + 1;
+        }
+        return segments;
+    }
+
+    private static ArrayList<MixPieceSegment> compressMinimumAngle(List<Point> points) {
+        ArrayList<MixPieceSegment> segments = new ArrayList<>();
+        Map<Integer, List<MixPieceSegment>> possibleMixPieceSegments = new TreeMap<>();
+        for (int i = 0; i <= points.size() - 1; i++) {
+            List<MixPieceSegment> segmentsFromStartIdx = Encoding.createMixPieceSegmentsFromStartIdx(i, points, epsilon);
+            possibleMixPieceSegments.put(i, segmentsFromStartIdx);
+        }
+        double[][] best = new double[points.size()][];
+        double angle = possibleMixPieceSegments.get(points.size() - 1).get(0).getAMax() - possibleMixPieceSegments.get(points.size() - 1).get(0).getAMax();
+        best[points.size() - 1] = new double[]{1, 1, 1};
+        for (int i=points.size()-2; i>=0; i--) {
+            Encoding.findBestWithMinimumAngle(i, possibleMixPieceSegments, best);
         }
 
         double n = best[0][0];

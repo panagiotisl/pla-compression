@@ -288,10 +288,6 @@ public class Encoding {
         return createMixPieceSegmentsFromStartIdx(idx, this.points, epsilon);
     }
 
-    private List<MixPieceSegment> compress(List<Point> points) {
-        return compress(points, 0, 0);
-    }
-
     private List<MixPieceSegment> compress(List<Point> points, int mode, double pow) {
         Map<Integer, List<MixPieceSegment>> possibleMixPieceSegments = new TreeMap<>();
         switch (mode) {
@@ -306,7 +302,7 @@ public class Encoding {
                 double angle = possibleMixPieceSegments.get(points.size() - 1).get(0).getAMax() - possibleMixPieceSegments.get(points.size() - 1).get(0).getAMax();
                 best[points.size() - 1] = new double[]{1, Math.pow(angle, pow), 1};
                 for (int i=points.size()-2; i>=0; i--) {
-                    findBestWithAngle(i, possibleMixPieceSegments, best, pow);
+                    findBestWithMaximumAngle(i, possibleMixPieceSegments, best, pow);
                 }
 
                 int start = 0;
@@ -642,65 +638,53 @@ public class Encoding {
         }
     }
 
-    public static double[] findBestWithAngle(int start, Map<Integer, List<MixPieceSegment>> possibleMixPieceSegments, double[][] best, double pow) {
-        if (start >= possibleMixPieceSegments.size()) {
-            return new double[] {0, 0};
-        }
-        if (best[start] != null) {
-            return new double[] {best[start][0], best[start][1]};
-        }
-        else {
-            double bestAngle = Double.NEGATIVE_INFINITY;
-            double bestN = Double.POSITIVE_INFINITY;
-            int bestIndex = 0;
-            for (int i=1; i<= possibleMixPieceSegments.get(start).size(); i++) {
-                double[] result = findBestWithAngle(start + i + 1, possibleMixPieceSegments, best, pow);
-                double n = result[0] + 1;
-                MixPieceSegment segment = possibleMixPieceSegments.get(start).get(i-1);
-
-                double angle = result[1] + Math.pow((segment.getAMax() - segment.getAMin()), pow);
-//                double angle = result[1] + (segment.getAMax() - segment.getAMin());
-                if (n < bestN || (n == bestN && angle > bestAngle)) {
-                    bestAngle = angle;
-                    bestN = n;
-                    bestIndex = i;
-                }
+    public static double[] findBestWithMaximumAngle(int start, Map<Integer, List<MixPieceSegment>> possibleMixPieceSegments, double[][] best, double pow) {
+        double bestAngle = Double.NEGATIVE_INFINITY;
+        double bestN = Double.POSITIVE_INFINITY;
+        int bestIndex = 0;
+        for (int i=1; i<= possibleMixPieceSegments.get(start).size(); i++) {
+            int newStart = start + i + 1;
+            double[] result = {0, 0};
+            if (newStart < possibleMixPieceSegments.size()) {
+                result = best[start + i + 1];
             }
-            best[start] = new double[]{bestN, bestAngle, bestIndex};
-            return new double[] {bestN, bestAngle};
+            double n = result[0] + 1;
+            MixPieceSegment segment = possibleMixPieceSegments.get(start).get(i-1);
+            double angle = result[1] + Math.pow((segment.getAMax() - segment.getAMin()), pow);
+            if (n < bestN || (n == bestN && angle > bestAngle)) {
+                bestAngle = angle;
+                bestN = n;
+                bestIndex = i;
+            }
         }
+        best[start] = new double[]{bestN, bestAngle, bestIndex};
+        return new double[] {bestN, bestAngle};
     }
 
-
-    public static double[] findBestWithAngleOld(int start, Map<Integer, List<MixPieceSegment>> possibleMixPieceSegments, double[][] best, double pow) {
-        if (start >= possibleMixPieceSegments.size()) {
-            return new double[] {0, 0};
-        }
-        if (best[start] != null) {
-            return new double[] {best[start][0], best[start][1]};
-        }
-        else {
-            double bestResult = Double.MIN_VALUE;
-            double bestAngle = 0;
-            double bestN = 0;
-            int bestIndex = 0;
-            for (int i=1; i<= possibleMixPieceSegments.get(start).size(); i++) {
-                double[] result = findBestWithAngle(start + i + 1, possibleMixPieceSegments, best, pow);
-                double n = result[0] + 1;
-                MixPieceSegment segment = possibleMixPieceSegments.get(start).get(i-1);
-                double angle = result[1] + Math.pow((segment.getAMax() - segment.getAMin()), pow);
-                double cost = angle / (n * n);
-                if (cost > bestResult) {
-                    bestResult = cost;
-                    bestAngle = angle;
-                    bestN = n;
-                    bestIndex = i;
-                }
+    public static double[] findBestWithMinimumAngle(int start, Map<Integer, List<MixPieceSegment>> possibleMixPieceSegments, double[][] best) {
+        double bestAngle = Double.NEGATIVE_INFINITY;
+        double bestN = Double.POSITIVE_INFINITY;
+        int bestIndex = 0;
+        for (int i=1; i<= possibleMixPieceSegments.get(start).size(); i++) {
+            int newStart = start + i + 1;
+            double[] result = {0, 0};
+            if (newStart < possibleMixPieceSegments.size()) {
+                result = best[start + i + 1];
             }
-            best[start] = new double[]{bestN, bestAngle, bestIndex};
-            return new double[] {bestN, bestAngle};
+            double n = result[0] + 1;
+            MixPieceSegment segment = possibleMixPieceSegments.get(start).get(i-1);
+
+            double angle = result[1] + (segment.getAMax() - segment.getAMin());
+            if (n < bestN || (n == bestN && angle < bestAngle)) {
+                bestAngle = angle;
+                bestN = n;
+                bestIndex = i;
+            }
         }
+        best[start] = new double[]{bestN, bestAngle, bestIndex};
+        return new double[] {bestN, bestAngle};
     }
+
 
     public static int addSegment(int startIdx, double pow, List<Point> points, double epsilon, List<MixPieceSegment> segments) {
 //        int firstMixPieceSegments = cache.get(startIdx).size();
