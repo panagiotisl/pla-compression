@@ -300,8 +300,9 @@ public class TestPLA {
         double epsilonStart = 0.01;
         double epsilonStep = 0.01;
         double epsilonEnd = 0.051;
-        double[] steps = {0.01, 0.05, 0.1};
-        String[] filenames = {"/Yoga.csv.gz", "/Rock.csv.gz", "/Worms.csv.gz", "/Trace.csv.gz", "/StarLightCurves-sample.csv.gz", "/Car.csv.gz", "/CinCECGTorso-sample2.csv.gz", "/Plane.csv.gz", "/citytemp_f32_sample.csv.gz", "/jane_street_f64_sample.csv.gz", "/solar_wind_f32_sample.csv.gz", "/Lightning.csv.gz", "/Cricket.csv.gz", "/FaceFour.csv.gz", "/WindSpeed_sample.csv.gz" };
+        double[] steps = {0.1};
+        //String[] filenames = {"/Yoga.csv.gz", "/Rock.csv.gz", "/Worms.csv.gz", "/Trace.csv.gz", "/StarLightCurves-sample.csv.gz", "/Car.csv.gz", "/CinCECGTorso-sample2.csv.gz", "/Plane.csv.gz", "/citytemp_f32_sample.csv.gz", "/jane_street_f64_sample.csv.gz", "/solar_wind_f32_sample.csv.gz", "/Lightning.csv.gz", "/Cricket.csv.gz", "/FaceFour.csv.gz", "/WindSpeed_sample.csv.gz" };
+        String[] filenames = {"/Rock.csv.gz", "/Worms.csv.gz", "/Trace.csv.gz", "/StarLightCurves-sample.csv.gz", "/Car.csv.gz", "/CinCECGTorso-sample2.csv.gz", "/Plane.csv.gz", "/citytemp_f32_sample.csv.gz", "/jane_street_f64_sample.csv.gz", "/solar_wind_f32_sample.csv.gz", "/Lightning.csv.gz", "/Cricket.csv.gz", "/FaceFour.csv.gz", "/WindSpeed_sample.csv.gz" };
 //        String[] filenames = { "/Yoga-sample.csv.gz", "/Yoga-sample-2.csv.gz", "/Yoga-sample-3.csv.gz", "/Yoga-sample-4.csv.gz", "/Yoga-sample-5.csv.gz", "/StarLightCurves-sample.csv.gz", "/Car.csv.gz" };
 //        String[] filenames = { "/Yoga.csv.gz", "/StarLightCurves-sample.csv.gz", "/Car.csv.gz" };
 //        String[] filenames = {"/Yoga.csv.gz" };
