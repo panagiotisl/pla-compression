@@ -8,6 +8,8 @@ import org.pla.compression.util.TimeSeries;
 import org.pla.compression.util.TimeSeriesReader;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
@@ -204,13 +206,13 @@ public class TestPLA {
                             double[] simpiece = Encoding(ts.data, ts.range * epsilonPct, false, false, 1, 0.0);
                             dur += compressDuration.toMillis();
                             if(i==9) System.out.printf("Sim-Piece\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\t%.2f\n", epsilonPct * 100, (double) ts.size / simpiece[0], dur/10, (long) simpiece[1], simpiece[2]/ts.data.size(), simpiece[2]/(ts.range * ts.data.size()), ts.range);
-                }
+                }*/
                 dur = 0;
                 for (int i=0;i<10;i++){
                             double[] simpiece = Encoding(ts.data, ts.range * epsilonPct, false, false, 5, 0.0);
                             dur += compressDuration.toMillis();
                             if(i==9) System.out.printf("Sim-Piece*\tEpsilon: %.2f%%\tCompression Ratio: %.3f\tExecution Time: %dms\tSegments: %d\tMAE: %.10f\tMAE%%: %.10f\t%.2f\n", epsilonPct * 100, (double) ts.size / simpiece[0], dur/10, (long) simpiece[1], simpiece[2]/ts.data.size(), simpiece[2]/(ts.range * ts.data.size()), ts.range);
-                }*/
+                }
                 dur = 0;
                 for (int i=0;i<10;i++){
                     double[] simpiece = MixPiece(ts.data, ts.range * epsilonPct, false, false);
@@ -244,7 +246,7 @@ public class TestPLA {
         for (String filename : filenames) {
             System.out.println(filename);
             String delimiter = ",";
-            TimeSeries ts = TimeSeriesReader.getTimeSeries(getClass().getResourceAsStream(filename), delimiter, true);
+            TimeSeries ts = TimeSeriesReader.getTimeSeries(new FileInputStream(new File(filename)), delimiter, true);
             for (double epsilonPct : steps) {
                 long dur = 0, dedur = 0;
                 for (int i=0;i<10;i++){
@@ -297,12 +299,142 @@ public class TestPLA {
 
     @Test
     public void TestAll() throws Exception {
-        double epsilonStart = 0.01;
-        double epsilonStep = 0.01;
-        double epsilonEnd = 0.051;
-        double[] steps = {0.1};
+        double[] steps = {0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1};
+        // double[] steps = {0.01, 0.05, 0.1};
+        String[] filenames = {
+/*//"/home/panagiotis/workspace/cameo/data/pla-humidity.csv.gz",
+//"/home/panagiotis/workspace/cameo/data/pla-irbiotemp.csv.gz",*/
+//"/home/panagiotis/workspace/datasets/UCR/processed-1M/ACSF1.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/Adiac.csv.gz",
+//"/home/panagiotis/workspace/datasets/UCR/processed-1M/AllGestureWiimoteX.csv.gz",
+//"/home/panagiotis/workspace/datasets/UCR/processed-1M/AllGestureWiimoteY.csv.gz",
+//"/home/panagiotis/workspace/datasets/UCR/processed-1M/AllGestureWiimoteZ.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/ArrowHead.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/Beef.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/BeetleFly.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/BirdChicken.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/BME.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/Car.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/CBF.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/Chinatown.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/ChlorineConcentration.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/CinCECGTorso-sample.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/Coffee.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/Computers-sample.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/CricketX.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/CricketY.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/CricketZ.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/Crop.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/DiatomSizeReduction.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/DistalPhalanxOutlineAgeGroup.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/DistalPhalanxOutlineCorrect.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/DistalPhalanxTW.csv.gz",
+//"/home/panagiotis/workspace/datasets/UCR/processed-1M/DodgerLoopDay.csv.gz",
+//"/home/panagiotis/workspace/datasets/UCR/processed-1M/DodgerLoopGame.csv.gz",
+//"/home/panagiotis/workspace/datasets/UCR/processed-1M/DodgerLoopWeekend.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/Earthquakes.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/ECG200.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/ECG5000.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/ECGFiveDays.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/ElectricDevices.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/EOGHorizontalSignal-sample.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/EOGVerticalSignal-sample.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/EthanolLevel-sample.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/FaceAll.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/FaceFour.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/FacesUCR.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/FiftyWords.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/Fish.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/FordA.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/FordB.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/FreezerRegularTrain.csv.gz",
+//"/home/panagiotis/workspace/datasets/UCR/processed-1M/FreezerSmallTrain.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/Fungi.csv.gz",
+//"/home/panagiotis/workspace/datasets/UCR/processed-1M/GestureMidAirD1.csv.gz",
+//"/home/panagiotis/workspace/datasets/UCR/processed-1M/GestureMidAirD2.csv.gz",
+//"/home/panagiotis/workspace/datasets/UCR/processed-1M/GestureMidAirD3.csv.gz",
+//"/home/panagiotis/workspace/datasets/UCR/processed-1M/GesturePebbleZ1.csv.gz",
+//"/home/panagiotis/workspace/datasets/UCR/processed-1M/GesturePebbleZ2.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/GunPointAgeSpan.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/GunPoint.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/GunPointMaleVersusFemale.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/GunPointOldVersusYoung.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/Ham.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/HandOutlines-sample.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/Haptics-sample.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/Herring.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/HouseTwenty-sample.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/InlineSkate-sample.csv.gz",
+//"/home/panagiotis/workspace/datasets/UCR/processed-1M/InsectEPGRegularTrain.csv.gz",
+//"/home/panagiotis/workspace/datasets/UCR/processed-1M/InsectEPGSmallTrain.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/InsectWingbeatSound.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/ItalyPowerDemand.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/LargeKitchenAppliances-sample.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/Lightning2.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/Lightning7.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/Mallat.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/Meat.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/MedicalImages.csv.gz",
+//"/home/panagiotis/workspace/datasets/UCR/processed-1M/MelbournePedestrian-sample.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/MiddlePhalanxOutlineAgeGroup.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/MiddlePhalanxOutlineCorrect.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/MiddlePhalanxTW.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/MixedShapesRegularTrain.csv.gz",
+//"/home/panagiotis/workspace/datasets/UCR/processed-1M/MixedShapesSmallTrain.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/MoteStrain.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/NonInvasiveFetalECGThorax1.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/NonInvasiveFetalECGThorax2.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/OliveOil.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/OSULeaf.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/PhalangesOutlinesCorrect.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/Phoneme.csv.gz",
+//"/home/panagiotis/workspace/datasets/UCR/processed-1M/PickupGestureWiimoteZ.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/PigAirwayPressure-sample.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/PigArtPressure.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/PigCVP-sample.csv.gz",
+//"/home/panagiotis/workspace/datasets/UCR/processed-1M/PLAID.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/Plane.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/PowerCons.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/ProximalPhalanxOutlineAgeGroup.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/ProximalPhalanxOutlineCorrect.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/ProximalPhalanxTW.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/RefrigerationDevices.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/Rock-sample.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/ScreenType-sample.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/SemgHandGenderCh2.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/SemgHandMovementCh2.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/SemgHandSubjectCh2.csv.gz",
+//"/home/panagiotis/workspace/datasets/UCR/processed-1M/ShakeGestureWiimoteZ.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/ShapeletSim.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/ShapesAll.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/SmallKitchenAppliances-sample.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/SmoothSubspace.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/SonyAIBORobotSurface1.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/SonyAIBORobotSurface2.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/StarLightCurves.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/Strawberry.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/SwedishLeaf.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/Symbols.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/SyntheticControl.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/ToeSegmentation1.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/ToeSegmentation2.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/Trace.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/TwoLeadECG.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/TwoPatterns.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/UMD.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/UWaveGestureLibraryAll.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/UWaveGestureLibraryX.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/UWaveGestureLibraryY.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/UWaveGestureLibraryZ.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/Wafer.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/Wine.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/WordSynonyms.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/Worms.csv.gz",
+//"/home/panagiotis/workspace/datasets/UCR/processed-1M/WormsTwoClass.csv.gz",
+"/home/panagiotis/workspace/datasets/UCR/processed-1M/Yoga.csv.gz"
+	};
+
         //String[] filenames = {"/Yoga.csv.gz", "/Rock.csv.gz", "/Worms.csv.gz", "/Trace.csv.gz", "/StarLightCurves-sample.csv.gz", "/Car.csv.gz", "/CinCECGTorso-sample2.csv.gz", "/Plane.csv.gz", "/citytemp_f32_sample.csv.gz", "/jane_street_f64_sample.csv.gz", "/solar_wind_f32_sample.csv.gz", "/Lightning.csv.gz", "/Cricket.csv.gz", "/FaceFour.csv.gz", "/WindSpeed_sample.csv.gz" };
-        String[] filenames = {"/Rock.csv.gz", "/Worms.csv.gz", "/Trace.csv.gz", "/StarLightCurves-sample.csv.gz", "/Car.csv.gz", "/CinCECGTorso-sample2.csv.gz", "/Plane.csv.gz", "/citytemp_f32_sample.csv.gz", "/jane_street_f64_sample.csv.gz", "/solar_wind_f32_sample.csv.gz", "/Lightning.csv.gz", "/Cricket.csv.gz", "/FaceFour.csv.gz", "/WindSpeed_sample.csv.gz" };
 //        String[] filenames = { "/Yoga-sample.csv.gz", "/Yoga-sample-2.csv.gz", "/Yoga-sample-3.csv.gz", "/Yoga-sample-4.csv.gz", "/Yoga-sample-5.csv.gz", "/StarLightCurves-sample.csv.gz", "/Car.csv.gz" };
 //        String[] filenames = { "/Yoga.csv.gz", "/StarLightCurves-sample.csv.gz", "/Car.csv.gz" };
 //        String[] filenames = {"/Yoga.csv.gz" };

@@ -159,6 +159,7 @@ public class MixPiece {
     }
 
     private static ArrayList<MixPieceSegment> compress(List<Point> points) {
+        globalMinB = 0;
         ArrayList<MixPieceSegment> segments = new ArrayList<>();
         int currentIdx = 0;
         while (currentIdx < points.size()) {
@@ -184,6 +185,7 @@ public class MixPiece {
     }
 
     private static ArrayList<MixPieceSegment> compressTunablePeekAhead(List<Point> points, double pow) {
+        globalMinB = 0;
         ArrayList<MixPieceSegment> segments = new ArrayList<>();
         int startIdx = 0;
         while (startIdx < points.size()) {
@@ -193,6 +195,7 @@ public class MixPiece {
     }
 
     private static ArrayList<MixPieceSegment> compressQuantOptimal(List<Point> points, double pow) {
+        globalMinB = 0;
         ArrayList<MixPieceSegment> segments = new ArrayList<>();
         Map<Integer, List<MixPieceSegment>> possibleMixPieceSegments = new TreeMap<>();
         for (int i = 0; i <= points.size() - 1; i++) {
@@ -209,7 +212,7 @@ public class MixPiece {
         double n = best[0][0];
         double totalAngle = best[0][1];
         double cost = totalAngle / (n * n);
-        System.out.println("Number of segments: " + n + " " + "C: " + cost);
+        //System.out.println("Number of segments: " + n + " " + "C: " + cost);
 
         int start = 0;
         while (start < points.size()) {
@@ -236,7 +239,7 @@ public class MixPiece {
         double n = best[0][0];
         double totalAngle = best[0][1];
         double cost = totalAngle / (n * n);
-        System.out.println("Number of segments: " + n + " " + "C: " + cost);
+        //System.out.println("Number of segments: " + n + " " + "C: " + cost);
 
         int start = 0;
         while (start < points.size()) {
@@ -279,8 +282,7 @@ public class MixPiece {
             }
         }
 
-        System.out.println("Number of segments: " + bestK + " C: " + c[0].get(bestK).getValue() / (bestK * (double) bestK)
-        );
+        //System.out.println("Number of segments: " + bestK + " C: " + c[0].get(bestK).getValue() / (bestK * (double) bestK));
         int start = 0;
         int k = bestK;
 
