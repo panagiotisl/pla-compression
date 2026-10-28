@@ -1,7 +1,5 @@
 package org.pla.compression.encodings;
 
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.github.luben.zstd.Zstd;
 import org.pla.compression.util.Encoding.FloatEncoder;
 import org.pla.compression.util.Encoding.UIntEncoder;
@@ -13,17 +11,11 @@ import java.io.IOException;
 import java.util.*;
 
 public class Encoding {
-    private static final double POWER = 0.1;
     private List<MixPieceSegment> segments;
-    private byte[] byteArray;
 
-    private List<MixPieceSegment> bestMixPieceSegments;
-
-    private int bestSize = Integer.MAX_VALUE;
     private double epsilon;
     private long lastTimeStamp;
 
-    private int previousNoOfGroups = 0;
     private List<Point> points;
 
     public Encoding(List<Point> points, double epsilon, int mode, double pow) throws IOException {
@@ -256,17 +248,11 @@ public class Encoding {
         List<MixPieceSegment> tempMixPieceSegments = new ArrayList<>(segments);
         tempMixPieceSegments.add(new MixPieceSegment(initTimestamp, aMin, aMax, b));
         tempMixPieceSegments = mergePerB(tempMixPieceSegments);
-        double value = 0;
         TreeMap<Double, HashMap<Double, List<Long>>> input = new TreeMap<>();
         for (MixPieceSegment segment : tempMixPieceSegments) {
             double a = segment.getA();
             double bi = segment.getB();
             long t = segment.getInitTimestamp();
-            if (initTimestamp == t) {
-//                System.out.println(String.format("A: %f, A_new: %f, B: %f, A/A_new: %f", alpha, (segment.getAMax() - segment.getAMin()), (aMax - aMin),
-//                        alpha / (segment.getAMax() - segment.getAMin())));
-                value = alpha / (segment.getAMax() - segment.getAMin());
-            }
             if (!input.containsKey(bi)) input.put(bi, new HashMap<>());
             if (!input.get(bi).containsKey(a)) input.get(bi).put(a, new ArrayList<>());
             input.get(bi).get(a).add(t);
@@ -278,17 +264,8 @@ public class Encoding {
         return groups > previousNoOfGroups;// || value > 10;
     }
 
-    LoadingCache<Integer, List<MixPieceSegment>> cache = Caffeine.newBuilder()
-            .maximumSize(5000)
-            .build(this::createMixPieceSegmentsFromStartIdx);
-//    Map<Integer, List<SimPieceMixPieceSegment>> cache = new HashMap<>();
-
     private List<MixPieceSegment> createMixPieceSegmentsFromStartIdx(int idx) {
         return createMixPieceSegmentsFromStartIdx(idx, this.points, epsilon);
-    }
-
-    private List<MixPieceSegment> compress(List<Point> points) {
-        return compress(points, 0, 0);
     }
 
     private List<MixPieceSegment> compress(List<Point> points, int mode, double pow) {
@@ -297,7 +274,6 @@ public class Encoding {
             case 0:
                 for (int i = 0; i <= points.size() - 1; i++) {
                     List<MixPieceSegment> segmentsFromStartIdx = createMixPieceSegmentsFromStartIdx(i, points, epsilon);
-//            System.out.println(String.format("StartIdx: %d: %d", i, segmentsFromStartIdx.size()));
                     possibleMixPieceSegments.put(i, segmentsFromStartIdx);
                 }
                 this.segments = new ArrayList<>();
@@ -305,7 +281,7 @@ public class Encoding {
                 double angle = possibleMixPieceSegments.get(points.size() - 1).get(0).getAMax() - possibleMixPieceSegments.get(points.size() - 1).get(0).getAMax();
                 best[points.size() - 1] = new double[]{1, Math.pow(angle, pow), 1};
                 for (int i=points.size()-2; i>=0; i--) {
-                    findBestWithAngle(i, possibleMixPieceSegments, best, pow);
+                    findBestWithMaximumAngle(i, possibleMixPieceSegments, best, pow);
                 }
 
                 int start = 0;
@@ -315,8 +291,6 @@ public class Encoding {
                     start += (int) (best[start][2]) + 1;
                     count++;
                 }
-
-//                System.out.println("Best: " + best[0][0] + " Used: " + this.segments.size());
 
                 this.segments = mergePerB(this.segments);
                 break;
@@ -468,138 +442,60 @@ public class Encoding {
     }
 
 
-
-    private int createMixPieceSegmentSimPath(int startIdx, List<Point> points, List<MixPieceSegment> segments) {
-//        System.out.println("Starting segment " + segments.size());
-        long initTimestamp = points.get(startIdx).getTimestamp();
-        double b = quantization(points.get(startIdx).getValue(), epsilon);
-        if (startIdx + 1 == points.size()) {
-            segments.add(new MixPieceSegment(initTimestamp, -Double.MAX_VALUE, Double.MAX_VALUE, b));
-            return startIdx + 1;
-        }
-        double aMax = ((points.get(startIdx + 1).getValue() + epsilon) - b) / (points.get(startIdx + 1).getTimestamp() - initTimestamp);
-        double aMin = ((points.get(startIdx + 1).getValue() - epsilon) - b) / (points.get(startIdx + 1).getTimestamp() - initTimestamp);
-//      System.out.println(aMax-aMin);
-        double diff = aMax-aMin;
-        if (startIdx + 2 == points.size()) {
-            segments.add(new MixPieceSegment(initTimestamp, aMin, aMax, b));
-            return startIdx + 2;
-        }
-
-        int groups, startGroups = 0;
-        List<State> states = new ArrayList<>();
-        for (int idx = startIdx + 2; idx < points.size(); idx++) {
-//            if (idx - startIdx == 3) {
-//                groups = findNumberOfGroups(initTimestamp, aMax, aMin, b, segments);
-//                startGroups = groups;
-//            }
-            double upValue = points.get(idx).getValue() + epsilon;
-            double downValue = points.get(idx).getValue() - epsilon;
-
-            double upLim = aMax * (points.get(idx).getTimestamp() - initTimestamp) + b;
-            double downLim = aMin * (points.get(idx).getTimestamp() - initTimestamp) + b;
-
-            double aMaxTemp = aMax, aMinTemp = aMin;
-            if (upValue < upLim)
-                aMaxTemp = Math.max((upValue - b) / (points.get(idx).getTimestamp() - initTimestamp), aMin);
-            if (downValue > downLim)
-                aMinTemp = Math.min((downValue - b) / (points.get(idx).getTimestamp() - initTimestamp), aMax);
-            states.add(new State(idx, aMin, aMax));
-            if ((downValue > upLim || upValue < downLim)) {
-                int newGroups = findNumberOfGroups(initTimestamp, aMax, aMin, b, segments);
-                if (newGroups > previousNoOfGroups) {
-//                    System.out.println(String.format("MixPieceSegments: %d, Groups: %d, Size: %d", segments.size(), newGroups, (idx - startIdx)));
-                    State state = binarySearch(states, previousNoOfGroups, initTimestamp, b, segments);
-//                    if (idx > state.idx) {
-//                        System.out.println(String.format("%d - %d - %f", (idx - startIdx), (state.idx - startIdx) , ((double) state.idx - startIdx) / (idx - startIdx)));
-//                    }
-                    previousNoOfGroups = newGroups;
-                    segments.add(new MixPieceSegment(initTimestamp, state.aMin, state.aMax, b));
-                    return state.idx;
-                }
-                previousNoOfGroups = newGroups;
-                segments.add(new MixPieceSegment(initTimestamp, aMin, aMax, b));
-                return idx;
+    public static double[] findBestWithMaximumAngle(int start, Map<Integer, List<MixPieceSegment>> possibleMixPieceSegments, double[][] best, double pow) {
+        double bestAngle = Double.NEGATIVE_INFINITY;
+        double bestN = Double.POSITIVE_INFINITY;
+        int bestIndex = 0;
+        for (int i=1; i<= possibleMixPieceSegments.get(start).size(); i++) {
+            int newStart = start + i + 1;
+            double[] result = {0, 0};
+            if (newStart < possibleMixPieceSegments.size()) {
+                result = best[start + i + 1];
             }
-            diff = aMax-aMin;
-            if (upValue < upLim)
-                aMax = Math.max((upValue - b) / (points.get(idx).getTimestamp() - initTimestamp), aMin);
-            if (downValue > downLim)
-                aMin = Math.min((downValue - b) / (points.get(idx).getTimestamp() - initTimestamp), aMax);
-            diff = diff - (aMax-aMin);
+            double n = result[0] + 1;
+            MixPieceSegment segment = possibleMixPieceSegments.get(start).get(i-1);
+            double angle = result[1] + Math.pow((segment.getAMax() - segment.getAMin()), pow);
+            if (n < bestN || (n == bestN && angle > bestAngle)) {
+                bestAngle = angle;
+                bestN = n;
+                bestIndex = i;
+            }
         }
-        segments.add(new MixPieceSegment(initTimestamp, aMin, aMax, b));
-
-        return points.size();
+        best[start] = new double[]{bestN, bestAngle, bestIndex};
+        return new double[] {bestN, bestAngle};
     }
 
-    private int findBest(int start, Map<Integer, List<MixPieceSegment>> possibleMixPieceSegments, int[][] best) {
-//        System.out.println("CALLED: " + start + " - " + best.length);
-        if (start >= possibleMixPieceSegments.size()) {
-            return 0;
-        }
-        if (best[start] != null) {
-            return best[start][0];
-        }
-        else {
-            int bestResult = Integer.MAX_VALUE;
-            int bestIndex = 0;
-            for (int i=1; i<= possibleMixPieceSegments.get(start).size(); i++) {
-                int result = 1 + findBest(start + i + 1, possibleMixPieceSegments, best);
-                if (result < bestResult) {
-                    bestResult = result;
-                    bestIndex = i;
-                }
+    public static double[] findBestWithMinimumAngle(int start, Map<Integer, List<MixPieceSegment>> possibleMixPieceSegments, double[][] best) {
+        double bestAngle = Double.NEGATIVE_INFINITY;
+        double bestN = Double.POSITIVE_INFINITY;
+        int bestIndex = 0;
+        for (int i=1; i<= possibleMixPieceSegments.get(start).size(); i++) {
+            int newStart = start + i + 1;
+            double[] result = {0, 0};
+            if (newStart < possibleMixPieceSegments.size()) {
+                result = best[start + i + 1];
             }
-            best[start] = new int[]{bestResult, bestIndex};
-//            System.out.println("Best for: " + start + " is: " + bestResult);
-            return bestResult;
+            double n = result[0] + 1;
+            MixPieceSegment segment = possibleMixPieceSegments.get(start).get(i-1);
+
+            double angle = result[1] + (segment.getAMax() - segment.getAMin());
+            if (n < bestN || (n == bestN && angle < bestAngle)) {
+                bestAngle = angle;
+                bestN = n;
+                bestIndex = i;
+            }
         }
+        best[start] = new double[]{bestN, bestAngle, bestIndex};
+        return new double[] {bestN, bestAngle};
     }
 
-
-
-    public static double[] findBestWithAngle(int start, Map<Integer, List<MixPieceSegment>> possibleMixPieceSegments, double[][] best, double pow) {
-        if (start >= possibleMixPieceSegments.size()) {
-            return new double[] {0, 0};
-        }
-        if (best[start] != null) {
-            return new double[] {best[start][0], best[start][1]};
-        }
-        else {
-            double bestResult = Double.MIN_VALUE;
-            double bestAngle = 0;
-            double bestN = 0;
-            int bestIndex = 0;
-            for (int i=1; i<= possibleMixPieceSegments.get(start).size(); i++) {
-                double[] result = findBestWithAngle(start + i + 1, possibleMixPieceSegments, best, pow);
-                double n = result[0] + 1;
-                MixPieceSegment segment = possibleMixPieceSegments.get(start).get(i-1);
-                double angle = result[1] + Math.pow((segment.getAMax() - segment.getAMin()), pow);
-                double cost = angle / (n * n);
-//                double cost = 1.0 / (n * n);
-//                double cost = 1.0 / n;
-                if (cost > bestResult) {
-                    bestResult = cost;
-                    bestAngle = angle;
-                    bestN = n;
-                    bestIndex = i;
-                }
-            }
-            best[start] = new double[]{bestN, bestAngle, bestIndex};
-            return new double[] {bestN, bestAngle};
-        }
-    }
 
     public static int addSegment(int startIdx, double pow, List<Point> points, double epsilon, List<MixPieceSegment> segments) {
-//        int firstMixPieceSegments = cache.get(startIdx).size();
         List<MixPieceSegment> firstMixPieceSegments = createMixPieceSegmentsFromStartIdx(startIdx, points, epsilon);
         int index = 0;
         if (startIdx + 2 < points.size()) {
-//            int best = 2 + cache.get(startIdx + 2).size();
             int best = 2 + findReachFrom(startIdx + 2, points, epsilon);
             for (int i = (int) Math.pow(firstMixPieceSegments.size(), pow); i<firstMixPieceSegments.size() && startIdx + i + 2 < points.size(); i++) {
-//                int reach = 2 + i + cache.get(startIdx + i + 2).size();
                 int reach = 2 + i + findReachFrom(startIdx + i + 2, points, epsilon);
                 if (reach > best) {
                     best = reach;
@@ -607,7 +503,6 @@ public class Encoding {
                 }
             }
         }
-//        this.segments.add(cache.get(startIdx).get(index));
         segments.add(firstMixPieceSegments.get(index));
         return startIdx + index + 1 + 1;
     }
@@ -684,12 +579,10 @@ public class Encoding {
                     possibleMixPieceSegments.get(startIdx + 2).get(possibleMixPieceSegments.get(startIdx + 2).size() -1).getAMax() -
                             possibleMixPieceSegments.get(startIdx + 2).get(possibleMixPieceSegments.get(startIdx + 2).size() -1).getAMin(), pow);
             int best = 2 + possibleMixPieceSegments.get(startIdx + 2).size();
-//            System.out.println(0 + ": " + startIdx + " " + best);
             for (int i=1; i<firstMixPieceSegments && startIdx + i + 2 < possibleMixPieceSegments.size(); i++) {
                 double alphaTotal = Math.pow(alpha1, pow) + Math.pow(
                         possibleMixPieceSegments.get(startIdx + i + 2).get(possibleMixPieceSegments.get(startIdx + i + 2).size() -1).getAMax() -
                                 possibleMixPieceSegments.get(startIdx + i + 2).get(possibleMixPieceSegments.get(startIdx + i + 2).size() -1).getAMin(), pow);
-//                System.out.println(i + ": " + startIdx + " " + best);
                 int reach = 2 + i + possibleMixPieceSegments.get(startIdx + i + 2).size();
                 if (reach > best) {
                     best = reach;

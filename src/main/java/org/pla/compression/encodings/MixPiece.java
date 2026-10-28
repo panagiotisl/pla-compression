@@ -78,6 +78,16 @@ public class MixPiece {
         return new Result(toByteArrayImproved(variableByte, zstd), segments.size());
     }
 
+    public static Result compressMinimumAngle(List<Point> points, double error, boolean variableByte, boolean zstd) throws Exception {
+        if (points.isEmpty() || error <= 0) throw new Exception();
+
+        epsilon = error;
+        lastTimeStamp = points.get(points.size() - 1).getTimestamp();
+        ArrayList<MixPieceSegment> segments = compressMinimumAngle(points);
+        merge(segments);
+        return new Result(toByteArrayImproved(variableByte, zstd), segments.size());
+    }
+
     /**
      * Decompress a binary representation and return a list of Points
      *
@@ -138,6 +148,7 @@ public class MixPiece {
     }
 
     private static ArrayList<MixPieceSegment> compress(List<Point> points) {
+        globalMinB = 0;
         ArrayList<MixPieceSegment> segments = new ArrayList<>();
         int currentIdx = 0;
         while (currentIdx < points.size()) {
@@ -163,6 +174,7 @@ public class MixPiece {
     }
 
     private static ArrayList<MixPieceSegment> compressTunablePeekAhead(List<Point> points, double pow) {
+        globalMinB = 0;
         ArrayList<MixPieceSegment> segments = new ArrayList<>();
         int startIdx = 0;
         while (startIdx < points.size()) {
@@ -172,6 +184,7 @@ public class MixPiece {
     }
 
     private static ArrayList<MixPieceSegment> compressQuantOptimal(List<Point> points, double pow) {
+        globalMinB = 0;
         ArrayList<MixPieceSegment> segments = new ArrayList<>();
         Map<Integer, List<MixPieceSegment>> possibleMixPieceSegments = new TreeMap<>();
         for (int i = 0; i <= points.size() - 1; i++) {
@@ -182,19 +195,41 @@ public class MixPiece {
         double angle = possibleMixPieceSegments.get(points.size() - 1).get(0).getAMax() - possibleMixPieceSegments.get(points.size() - 1).get(0).getAMax();
         best[points.size() - 1] = new double[]{1, Math.pow(angle, pow), 1};
         for (int i=points.size()-2; i>=0; i--) {
-            Encoding.findBestWithAngle(i, possibleMixPieceSegments, best, pow);
+            Encoding.findBestWithMaximumAngle(i, possibleMixPieceSegments, best, pow);
         }
 
+        double n = best[0][0];
+        double totalAngle = best[0][1];
+
         int start = 0;
-        int count = 0;
         while (start < points.size()) {
             segments.add(possibleMixPieceSegments.get(start).get((int) (best[start][2]-1)));
             start += (int) (best[start][2]) + 1;
-            count++;
         }
         return segments;
     }
 
+    private static ArrayList<MixPieceSegment> compressMinimumAngle(List<Point> points) {
+        ArrayList<MixPieceSegment> segments = new ArrayList<>();
+        Map<Integer, List<MixPieceSegment>> possibleMixPieceSegments = new TreeMap<>();
+        for (int i = 0; i <= points.size() - 1; i++) {
+            List<MixPieceSegment> segmentsFromStartIdx = Encoding.createMixPieceSegmentsFromStartIdx(i, points, epsilon);
+            possibleMixPieceSegments.put(i, segmentsFromStartIdx);
+        }
+        double[][] best = new double[points.size()][];
+        double angle = possibleMixPieceSegments.get(points.size() - 1).get(0).getAMax() - possibleMixPieceSegments.get(points.size() - 1).get(0).getAMax();
+        best[points.size() - 1] = new double[]{1, 1, 1};
+        for (int i=points.size()-2; i>=0; i--) {
+            Encoding.findBestWithMinimumAngle(i, possibleMixPieceSegments, best);
+        }
+
+        int start = 0;
+        while (start < points.size()) {
+            segments.add(possibleMixPieceSegments.get(start).get((int) (best[start][2]-1)));
+            start += (int) (best[start][2]) + 1;
+        }
+        return segments;
+    }
 
     private static void mergePerB(ArrayList<MixPieceSegment> segments, ArrayList<MixPieceSegment> mergedSegments, ArrayList<MixPieceSegment> unmergedSegments) {
         double aMinTemp = -Double.MAX_VALUE;
@@ -335,45 +370,18 @@ public class MixPiece {
         }
 
         VariableByteEncoder.write(input.size(), tempStream);
-//        if (variableByte) {
-//            VariableByteEncoder.write(input.size(), outStream);
-//        } else {
-//            UIntEncoder.write(input.size(), outStream);
-//        }
         if (input.isEmpty())
             return;
         int previousB = input.firstKey() - globalMinB;
         VariableByteEncoder.write(previousB, tempStream);
-//        if (variableByte) {
-//            VariableByteEncoder.write(previousB, outStream);
-//        } else {
-//            UIntEncoder.write(previousB, outStream);
-//        }
         for (Map.Entry<Integer, HashMap<Double, ArrayList<Long>>> bSegments : input.entrySet()) {
             VariableByteEncoder.write(bSegments.getKey() - globalMinB - previousB, tempStream);
-//            if (variableByte) {
-//                VariableByteEncoder.write(bSegments.getKey() - globalMinB - previousB, outStream);
-//            } else {
-//                UIntEncoder.write(bSegments.getKey() - globalMinB - previousB, outStream);
-//            }
             previousB = bSegments.getKey() - globalMinB;
             groupSizes.add(bSegments.getValue().size());
-//            VariableByteEncoder.write(bSegments.getValue().size(), tempStream);
-//            if (variableByte) {
-//                VariableByteEncoder.write(bSegments.getValue().size(), tempStream);
-//            } else {
-//                UIntEncoder.write(bSegments.getValue().size(), tempStream);
-//            }
             for (Map.Entry<Double, ArrayList<Long>> aSegment : bSegments.getValue().entrySet()) {
                 FloatEncoder.write(aSegment.getKey().floatValue(), tempStream);
                 Collections.sort(aSegment.getValue());
-//                VariableByteEncoder.write(aSegment.getValue().size(), tempStream);
                 segmentSizes.add(aSegment.getValue().size());
-//                if (variableByte) {
-//                    VariableByteEncoder.write(aSegment.getValue().size(), outStream);
-//                } else {
-//                    UIntEncoder.write(aSegment.getValue().size(), outStream);
-//                }
                 long previousTS = 0;
                 for (Long timestamp : aSegment.getValue()) {
                     if (variableByte) {
@@ -419,44 +427,19 @@ public class MixPiece {
         }
 
         VariableByteEncoder.write(input.size(), outStream);
-//        if (variableByte) {
-//            VariableByteEncoder.write(input.size(), outStream);
-//        } else {
-//            UIntEncoder.write(input.size(), outStream);
-//        }
         if (input.isEmpty())
             return;
         int previousB = input.firstKey() - globalMinB;
         VariableByteEncoder.write(previousB, outStream);
-//        if (variableByte) {
-//            VariableByteEncoder.write(previousB, outStream);
-//        } else {
-//            UIntEncoder.write(previousB, outStream);
-//        }
         for (Map.Entry<Integer, HashMap<Double, ArrayList<Long>>> bSegments : input.entrySet()) {
             VariableByteEncoder.write(bSegments.getKey() - globalMinB - previousB, outStream);
-//            if (variableByte) {
-//                VariableByteEncoder.write(bSegments.getKey() - globalMinB - previousB, outStream);
-//            } else {
-//                UIntEncoder.write(bSegments.getKey() - globalMinB - previousB, outStream);
-//            }
             previousB = bSegments.getKey() - globalMinB;
             VariableByteEncoder.write(bSegments.getValue().size(), outStream);
-//            if (variableByte) {
-//                VariableByteEncoder.write(bSegments.getValue().size(), outStream);
-//            } else {
-//                UIntEncoder.write(bSegments.getValue().size(), outStream);
-//            }
             for (Map.Entry<Double, ArrayList<Long>> aSegment : bSegments.getValue().entrySet()) {
                 FloatEncoder.write(aSegment.getKey().floatValue(), outStream);
                 Collections.sort(aSegment.getValue());
                 VariableByteEncoder.write(aSegment.getValue().size(), outStream);
                 sizes.add(aSegment.getValue().size());
-//                if (variableByte) {
-//                    VariableByteEncoder.write(aSegment.getValue().size(), outStream);
-//                } else {
-//                    UIntEncoder.write(aSegment.getValue().size(), outStream);
-//                }
                 long previousTS = 0;
                 for (Long timestamp : aSegment.getValue()) {
                     if (variableByte) {
@@ -480,36 +463,15 @@ public class MixPiece {
         }
 
         VariableByteEncoder.write(input.size(), tempStream);
-//        if (variableByte) {
-//            VariableByteEncoder.write(input.size(), outStream);
-//        } else {
-//            UIntEncoder.write(input.size(), outStream);
-//        }
         for (Map.Entry<Double, ArrayList<MixPieceSegment>> aSegments : input.entrySet()) {
             FloatEncoder.write(aSegments.getKey().floatValue(), tempStream);
             VariableByteEncoder.write(aSegments.getValue().size(), tempStream);
-//            if (variableByte) {
-//                VariableByteEncoder.write(aSegments.getValue().size(), outStream);
-//            } else {
-//                UIntEncoder.write(aSegments.getValue().size(), outStream);
-//            }
             aSegments.getValue().sort(Comparator.comparingDouble(MixPieceSegment::getB));
             int previousB = (int) Math.round(aSegments.getValue().get(0).getB() / epsilon) - globalMinB;
             VariableByteEncoder.write(previousB, tempStream);
-//            if (variableByte) {
-//                VariableByteEncoder.write(previousB, outStream);
-//            } else {
-//                UIntEncoder.write(previousB, outStream);
-//            }
             for (MixPieceSegment segment : aSegments.getValue()) {
                 int newB = (int) (Math.round(segment.getB() / epsilon) - globalMinB);
                 betas.add(newB - previousB);
-//                VariableByteEncoder.write(newB - previousB, tempStream);
-//                if (variableByte) {
-//                    VariableByteEncoder.write((int) (Math.round(segment.getB() / epsilon) - globalMinB - previousB), outStream);
-//                } else {
-//                    UIntEncoder.write((int) (Math.round(segment.getB() / epsilon) - globalMinB - previousB), outStream);
-//                }
                 previousB = newB;
                 UIntEncoder.write(segment.getInitTimestamp(), tempStream);
             }
@@ -527,35 +489,15 @@ public class MixPiece {
         }
 
         VariableByteEncoder.write(input.size(), outStream);
-//        if (variableByte) {
-//            VariableByteEncoder.write(input.size(), outStream);
-//        } else {
-//            UIntEncoder.write(input.size(), outStream);
-//        }
         for (Map.Entry<Double, ArrayList<MixPieceSegment>> aSegments : input.entrySet()) {
             FloatEncoder.write(aSegments.getKey().floatValue(), outStream);
             VariableByteEncoder.write(aSegments.getValue().size(), outStream);
-//            if (variableByte) {
-//                VariableByteEncoder.write(aSegments.getValue().size(), outStream);
-//            } else {
-//                UIntEncoder.write(aSegments.getValue().size(), outStream);
-//            }
             aSegments.getValue().sort(Comparator.comparingDouble(MixPieceSegment::getB));
             int previousB = (int) Math.round(aSegments.getValue().get(0).getB() / epsilon) - globalMinB;
             VariableByteEncoder.write(previousB, outStream);
-//            if (variableByte) {
-//                VariableByteEncoder.write(previousB, outStream);
-//            } else {
-//                UIntEncoder.write(previousB, outStream);
-//            }
             for (MixPieceSegment segment : aSegments.getValue()) {
                 int newB = (int) (Math.round(segment.getB() / epsilon) - globalMinB);
                 VariableByteEncoder.write(newB - previousB, outStream);
-//                if (variableByte) {
-//                    VariableByteEncoder.write((int) (Math.round(segment.getB() / epsilon) - globalMinB - previousB), outStream);
-//                } else {
-//                    UIntEncoder.write((int) (Math.round(segment.getB() / epsilon) - globalMinB - previousB), outStream);
-//                }
                 previousB = newB;
                 UIntEncoder.write(segment.getInitTimestamp(), outStream);
             }
@@ -565,29 +507,14 @@ public class MixPiece {
     private static void toByteArrayRestSegments(ArrayList<MixPieceSegment> segments, ByteArrayOutputStream outStream, boolean variableByte) throws IOException {
         List<Integer> betas = new LinkedList<>();
         VariableByteEncoder.write(segments.size(), outStream);
-//        if (variableByte) {
-//            VariableByteEncoder.write(segments.size(), outStream);
-//        } else {
-//            UIntEncoder.write(segments.size(), outStream);
-//        }
         if (segments.isEmpty())
             return;
         segments.sort(Comparator.comparingDouble(MixPieceSegment::getB));
         int previousB = (int) Math.round(segments.get(0).getB() / epsilon) - globalMinB;
         VariableByteEncoder.write(previousB, outStream);
-//        if (variableByte) {
-//            VariableByteEncoder.write(previousB, outStream);
-//        } else {
-//            UIntEncoder.write(previousB, outStream);
-//        }
         for (MixPieceSegment segment : segments) {
             betas.add((int) (Math.round(segment.getB() / epsilon) - globalMinB - previousB));
             VariableByteEncoder.write((int) (Math.round(segment.getB() / epsilon) - globalMinB - previousB), outStream);
-//            if (variableByte) {
-//                VariableByteEncoder.write((int) (Math.round(segment.getB() / epsilon) - globalMinB - previousB), outStream);
-//            } else {
-//                UIntEncoder.write((int) (Math.round(segment.getB() / epsilon) - globalMinB - previousB), outStream);
-//            }
             previousB = (int) Math.round(segment.getB() / epsilon) - globalMinB;
             FloatEncoder.write((float) segment.getA(), outStream);
             UIntEncoder.write(segment.getInitTimestamp(), outStream);
@@ -665,25 +592,16 @@ public class MixPiece {
         int recoveredGroupSizesIndex = 0;
 
         long numB = VariableByteEncoder.read(inStream);
-//        long numB = variableByte ? VariableByteEncoder.read(inStream) : UIntEncoder.read(inStream);
         if (numB == 0)
             return segments;
         int previousB = VariableByteEncoder.read(inStream);
-//        int previousB = variableByte ? VariableByteEncoder.read(inStream) : (int) UIntEncoder.read(inStream);
         for (int i = 0; i < numB; i++) {
             int b = VariableByteEncoder.read(inStream) + globalMinB + previousB;
-//            int b = variableByte ? VariableByteEncoder.read(inStream) + globalMinB + previousB : (int) UIntEncoder.read(inStream) + globalMinB + previousB;
             previousB = b - globalMinB;
             int numA = recoveredGroupSizes[recoveredGroupSizesIndex++];
-//            int numA = VariableByteEncoder.read(inStream);
-//            System.out.println("Comparison: " + numA + " " + recoveredGroupSizes[recoveredGroupSizesIndex++]);
-//            int numA = variableByte ? VariableByteEncoder.read(inStream) : (int) UIntEncoder.read(inStream);
             for (int j = 0; j < numA; j++) {
                 float a = FloatEncoder.read(inStream);
                 int numTimestamps = recoveredSegmentSizes[recoveredSegmentSizesIndex++];
-//                int numTimestamps = VariableByteEncoder.read(inStream);
-//                System.out.println("Comparison: " + numTimestamps + " " + recovered[noOfTimestampsIndex++]);
-//                int numTimestamps = variableByte ? VariableByteEncoder.read(inStream) : (int) UIntEncoder.read(inStream);
                 long timestamp = 0;
                 for (int k = 0; k < numTimestamps; k++) {
                     timestamp += variableByte ? VariableByteEncoder.read(inStream) : UIntEncoder.read(inStream);
@@ -713,21 +631,16 @@ public class MixPiece {
     private static ArrayList<MixPieceSegment> readMergedPerBSegments(ByteArrayInputStream inStream, boolean variableByte) throws IOException {
         ArrayList<MixPieceSegment> segments = new ArrayList<>();
         long numB = VariableByteEncoder.read(inStream);
-//        long numB = variableByte ? VariableByteEncoder.read(inStream) : UIntEncoder.read(inStream);
         if (numB == 0)
             return segments;
         int previousB = VariableByteEncoder.read(inStream);
-//        int previousB = variableByte ? VariableByteEncoder.read(inStream) : (int) UIntEncoder.read(inStream);
         for (int i = 0; i < numB; i++) {
             int b = VariableByteEncoder.read(inStream) + globalMinB + previousB;
-//            int b = variableByte ? VariableByteEncoder.read(inStream) + globalMinB + previousB : (int) UIntEncoder.read(inStream) + globalMinB + previousB;
             previousB = b - globalMinB;
             int numA = VariableByteEncoder.read(inStream);
-//            int numA = variableByte ? VariableByteEncoder.read(inStream) : (int) UIntEncoder.read(inStream);
             for (int j = 0; j < numA; j++) {
                 float a = FloatEncoder.read(inStream);
                 int numTimestamps = VariableByteEncoder.read(inStream);
-//                int numTimestamps = variableByte ? VariableByteEncoder.read(inStream) : (int) UIntEncoder.read(inStream);
                 long timestamp = 0;
                 for (int k = 0; k < numTimestamps; k++) {
                     timestamp += variableByte ? VariableByteEncoder.read(inStream) : UIntEncoder.read(inStream);
@@ -744,17 +657,12 @@ public class MixPiece {
         int recoveredBetasIndex = 0;
 
         int numA = VariableByteEncoder.read(inStream);
-//        int numA = variableByte ? VariableByteEncoder.read(inStream) : (int) UIntEncoder.read(inStream);
         for (int i = 0; i < numA; i++) {
             float a = FloatEncoder.read(inStream);
             int numBT = VariableByteEncoder.read(inStream);
-//            int numBT = variableByte ? VariableByteEncoder.read(inStream) : (int) UIntEncoder.read(inStream);
             int previousB = VariableByteEncoder.read(inStream);
-//            int previousB = variableByte ? VariableByteEncoder.read(inStream) : (int) UIntEncoder.read(inStream);
             for (int j = 0; j < numBT; j++) {
                 int b = recoveredBetas[recoveredBetasIndex++] + globalMinB + previousB;
-//                int b = VariableByteEncoder.read(inStream) + globalMinB + previousB;
-//                int b = variableByte ? VariableByteEncoder.read(inStream) + globalMinB + previousB : (int) (UIntEncoder.read(inStream) + globalMinB + previousB);
                 previousB = b - globalMinB;
                 long timestamp = UIntEncoder.read(inStream);
                 segments.add(new MixPieceSegment(timestamp, a, (float) (b * epsilon)));
@@ -766,16 +674,12 @@ public class MixPiece {
     private static ArrayList<MixPieceSegment> readMergedPerASegments(ByteArrayInputStream inStream, boolean variableByte) throws IOException {
         ArrayList<MixPieceSegment> segments = new ArrayList<>();
         int numA = VariableByteEncoder.read(inStream);
-//        int numA = variableByte ? VariableByteEncoder.read(inStream) : (int) UIntEncoder.read(inStream);
         for (int i = 0; i < numA; i++) {
             float a = FloatEncoder.read(inStream);
             int numBT = VariableByteEncoder.read(inStream);
-//            int numBT = variableByte ? VariableByteEncoder.read(inStream) : (int) UIntEncoder.read(inStream);
             int previousB = VariableByteEncoder.read(inStream);
-//            int previousB = variableByte ? VariableByteEncoder.read(inStream) : (int) UIntEncoder.read(inStream);
             for (int j = 0; j < numBT; j++) {
                 int b = VariableByteEncoder.read(inStream) + globalMinB + previousB;
-//                int b = variableByte ? VariableByteEncoder.read(inStream) + globalMinB + previousB : (int) (UIntEncoder.read(inStream) + globalMinB + previousB);
                 previousB = b - globalMinB;
                 long timestamp = UIntEncoder.read(inStream);
                 segments.add(new MixPieceSegment(timestamp, a, (float) (b * epsilon)));
@@ -788,14 +692,11 @@ public class MixPiece {
     private static ArrayList<MixPieceSegment> readUnmerged(ByteArrayInputStream inStream, boolean variableByte) throws IOException {
         ArrayList<MixPieceSegment> segments = new ArrayList<>();
         int num = VariableByteEncoder.read(inStream);
-//        int num = variableByte ? VariableByteEncoder.read(inStream) : (int) UIntEncoder.read(inStream);
         if (num == 0)
             return segments;
         int previousB = VariableByteEncoder.read(inStream);
-//        int previousB = variableByte ? VariableByteEncoder.read(inStream) : (int) UIntEncoder.read(inStream);
         for (int i = 0; i < num; i++) {
             int b = VariableByteEncoder.read(inStream) + globalMinB + previousB;
-//            int b = (variableByte ? VariableByteEncoder.read(inStream) : (int) UIntEncoder.read(inStream)) + globalMinB + previousB;
             previousB = b - globalMinB;
             float a = FloatEncoder.read(inStream);
             long timestamp = UIntEncoder.read(inStream);
