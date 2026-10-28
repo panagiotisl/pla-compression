@@ -1,9 +1,6 @@
 package org.pla.compression.encodings;
 
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.github.luben.zstd.Zstd;
-import org.pla.compression.util.Encoding.DPValue;
 import org.pla.compression.util.Encoding.FloatEncoder;
 import org.pla.compression.util.Encoding.UIntEncoder;
 import org.pla.compression.util.Encoding.VariableByteEncoder;
